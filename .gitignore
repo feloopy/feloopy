@@ -1,0 +1,32 @@
+# Copyright (c) 2022-2024, Keivan Tafakkori. All rights reserved.
+# See the file LICENSE file for licensing details.
+
+__pycache__
+_build
+.vscode
+.vs
+*.lp
+*.mps
+*.sio
+build
+clean.py
+create.py
+data
+data.xlsx
+debug.ipynb
+dist
+documents/
+env
+example.py
+extra*
+feloopy.egg-info
+guide/
+main*
+modules
+project*
+results
+site
+test.py
+test*
+todo.txt
+update.py
