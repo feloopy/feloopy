@@ -10,9 +10,12 @@
   </p>
 </div>
 
+<br>
+
+
 <h2 align="center">Efficient & Feature-Rich Integrated Decision Environment</h2>
 
-<br><br>
+<br>
 
 
 ## Quick Installation
