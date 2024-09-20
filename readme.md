@@ -40,3 +40,25 @@ For supporting the developer, testing the latest version, and reporting bugs or 
 ```bash
 pip install "feloopy[stock] @ git+https://github.com/feloopy/feloopy.git"
 ```
+
+
+<br>
+
+
+### Quick Testing
+
+Here is an example to test FelooPy's functionality:
+
+```python
+import feloopy as flp
+
+def example(m):
+    x = m.bvar(name="x")
+    y = m.pvar(name="y", bound=[0, 1])
+    m.con(x + y <= 1, name="c1")
+    m.con(x - y >= 1, name="c2")
+    m.obj(x + y)
+    return m
+
+flp.search(example,directions=["max"]).clean_report()
+```
