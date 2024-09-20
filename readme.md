@@ -15,25 +15,14 @@
 </p>
 
 
-<div style="text-align: center;">
-  <img src="https://img.shields.io/static/v1?label=Version&message=v0.3.5&color=%23fbad4c&labelColor=%233eb7c0&style=flat-square" alt="Version">
-  <img src="https://img.shields.io/github/release-date/feloopy/feloopy?label=release&color=%23fbad4c&labelColor=%233eb7c0&style=flat-square" alt="Release Date">
-  <a href="https://feloopy.readthedocs.io/en/latest/?badge=latest">
-    <img src="https://img.shields.io/static/v1?label=docs&message=latest&color=%23fbad4c&labelColor=%233eb7c0&style=flat-square" alt="Documentation">
-  </a>
-  <a href="https://discord.gg/VpZDeG8wbv">
-    <img src="https://img.shields.io/discord/1196153377969676399?color=%23fbad4c&label=discord&labelColor=%233eb7c0&style=flat-square" alt="Discord">
-  </a>
-  <a href="https://pepy.tech/project/feloopy">
-    <img src="https://img.shields.io/static/v1?label=total%20users&message=10k+&color=%23fbad4c&labelColor=%233eb7c0&style=flat-square" alt="Total Users">
-  </a>
-  <a href="https://pypistats.org/packages/feloopy">
-    <img src="https://img.shields.io/static/v1?label=monthly%20users&message=1k+&color=%23fbad4c&labelColor=%233eb7c0&style=flat-square" alt="Monthly Users">
-  </a>
-  <img src="https://img.shields.io/static/v1?label=source%20users&message=5k+&color=%23fbad4c&labelColor=%233eb7c0&style=flat-square" alt="Source Users">
-  <img src="https://img.shields.io/static/v1?label=license&message=MIT&color=%23fbad4c&labelColor=%233eb7c0&style=flat-square" alt="License">
-</div>
-
+![Version](https://img.shields.io/static/v1?label=Version&message=v0.3.5&color=%23fbad4c&labelColor=%233eb7c0&style=flat-square)
+![Release Date](https://img.shields.io/github/release-date/feloopy/feloopy?label=release&color=%23fbad4c&labelColor=%233eb7c0&style=flat-square)
+[![Documentation](https://img.shields.io/static/v1?label=docs&message=latest&color=%23fbad4c&labelColor=%233eb7c0&style=flat-square)](https://feloopy.readthedocs.io/en/latest/?badge=latest)
+[![Discord](https://img.shields.io/discord/1196153377969676399?color=%23fbad4c&label=discord&labelColor=%233eb7c0&style=flat-square)](https://discord.gg/VpZDeG8wbv)
+[![Total Users](https://img.shields.io/static/v1?label=total%20users&message=10k+&color=%23fbad4c&labelColor=%233eb7c0&style=flat-square)](https://pepy.tech/project/feloopy)
+[![Monthly Users](https://img.shields.io/static/v1?label=monthly%20users&message=1k+&color=%23fbad4c&labelColor=%233eb7c0&style=flat-square)](https://pypistats.org/packages/feloopy)
+![Source Users](https://img.shields.io/static/v1?label=source%20users&message=5k+&color=%23fbad4c&labelColor=%233eb7c0&style=flat-square)
+![License](https://img.shields.io/static/v1?label=license&message=MIT&color=%23fbad4c&labelColor=%233eb7c0&style=flat-square)
 
 <br>
 
