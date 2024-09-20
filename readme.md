@@ -12,8 +12,6 @@
 
 
 <h2 align='center'>Efficient & Feature-Rich Integrated Decision Environment</h2>
-<div align="center" style="margin-bottom: 2px;">
-
 
 ## Quick installation
 
