@@ -14,6 +14,7 @@
   <strong>Efficient & Feature-Rich Integrated Decision Environment</strong>
 </p>
 
+<div align="center" style="margin-bottom: 2px;">
 
 ![Version](https://img.shields.io/static/v1?label=Version&message=v0.3.5&color=%23fbad4c&labelColor=%233eb7c0&style=flat-square)
 ![Release Date](https://img.shields.io/github/release-date/feloopy/feloopy?label=release&color=%23fbad4c&labelColor=%233eb7c0&style=flat-square)
@@ -23,6 +24,9 @@
 [![Monthly Users](https://img.shields.io/static/v1?label=monthly%20users&message=1k+&color=%23fbad4c&labelColor=%233eb7c0&style=flat-square)](https://pypistats.org/packages/feloopy)
 ![Source Users](https://img.shields.io/static/v1?label=source%20users&message=5k+&color=%23fbad4c&labelColor=%233eb7c0&style=flat-square)
 ![License](https://img.shields.io/static/v1?label=license&message=MIT&color=%23fbad4c&labelColor=%233eb7c0&style=flat-square)
+
+</div>
+
 
 <br>
 
