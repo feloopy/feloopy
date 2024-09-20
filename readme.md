@@ -24,6 +24,9 @@
 
 </div>
 
+<br>
+
+### Quick Intro
 
 FelooPy (/fɛlupaɪ/) is a user-friendly tool for coding, modeling, and solving decision problems, helping you focus on analysis. FelooPy offers and supports a wide range of mathematical and statistical models and algorithms for decision-making.
 
@@ -44,9 +47,7 @@ For supporting the developer, testing the latest version, and reporting bugs or 
 pip install "feloopy[stock] @ git+https://github.com/feloopy/feloopy.git"
 ```
 
-
 <br>
-
 
 ### Quick Testing
 
@@ -69,7 +70,7 @@ flp.search(example,directions=["max"]).clean_report()
 <br>
 
 
-### Citation
+### Quick Citation
 
 To cite or give credit to FelooPy in publications, projects, presentations, web pages, blog posts, etc. please use one of the following entries, based on the used version:
 
