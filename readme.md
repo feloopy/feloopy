@@ -14,6 +14,8 @@
   <strong>Efficient & Feature-Rich Integrated Decision Environment</strong>
 </p>
 
+FelooPy (/fɛlupaɪ/) is a user-friendly tool for coding, modeling, and solving decision problems, helping you focus on analysis. FelooPy offers and supports a wide range of mathematical and statistical models and algorithms for decision-making.
+
 <div align="center" style="margin-bottom: 2px;">
 
 ![Version](https://img.shields.io/static/v1?label=Version&message=v0.3.5&color=orange&labelColor=blue)
