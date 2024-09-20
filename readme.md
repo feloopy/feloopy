@@ -10,9 +10,7 @@
   </p>
 </div>
 
-<br>
-
-<p align="center" style="font-size: 24px; font-weight: bold; margin: 0;">
+<p align="center">
   Efficient & Feature-Rich Integrated Decision Environment
 </p>
 
