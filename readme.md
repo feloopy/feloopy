@@ -11,7 +11,7 @@
 </div>
 
 <p align="center">
-  Efficient & Feature-Rich Integrated Decision Environment
+  <strong>Efficient & Feature-Rich Integrated Decision Environment</strong>
 </p>
 
 ![Version](https://img.shields.io/static/v1?label=Version&message=v0.3.5&color=%23fbad4c&labelColor=%233eb7c0&style=flat-square)
