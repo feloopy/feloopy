@@ -14,7 +14,6 @@
   <strong>Efficient & Feature-Rich Integrated Decision Environment</strong>
 </p>
 
-FelooPy (/fɛlupaɪ/) is a user-friendly tool for coding, modeling, and solving decision problems, helping you focus on analysis. FelooPy offers and supports a wide range of mathematical and statistical models and algorithms for decision-making.
 
 <div align="center" style="margin-bottom: 2px;">
 
@@ -25,6 +24,8 @@ FelooPy (/fɛlupaɪ/) is a user-friendly tool for coding, modeling, and solving 
 
 </div>
 
+
+FelooPy (/fɛlupaɪ/) is a user-friendly tool for coding, modeling, and solving decision problems, helping you focus on analysis. FelooPy offers and supports a wide range of mathematical and statistical models and algorithms for decision-making.
 
 <br>
 
