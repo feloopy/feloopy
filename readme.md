@@ -51,7 +51,7 @@ You can install `feloopy` inside a Python>=3.10.x virtual environment:
 pip install -U "feloopy[stock]==0.3.5"
 ```
 
-For supporting the developer, testing the latest version, and reporting bugs or contributing to the codebase, use the following command:
+For supporting the developer, testing the latest version, and reporting bugs or contributing to the codebase, use:
 
 ```bash
 pip install "feloopy[stock] @ git+https://github.com/feloopy/feloopy.git"
