@@ -62,3 +62,16 @@ def example(m):
 
 flp.search(example,directions=["max"]).clean_report()
 ```
+
+### Citation
+
+```
+@software{ktafakkori2024Apr,
+author       = {Keivan Tafakkori},
+title        = {{FelooPy: Efficient and feature-rich integrated decision environment}},
+year         = {2024},
+month        = apr,
+publisher    = {GitHub},
+url          = {https://github.com/ktafakkori/feloopy/}
+}
+```
