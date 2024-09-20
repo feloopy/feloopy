@@ -84,6 +84,8 @@ flp.search(example,directions=["max"]).clean_report()
 
 To cite or give credit to FelooPy in publications, projects, presentations, web pages, blog posts, etc. please use one of the following entries, based on the used version:
 
+<br>
+
 #### APA 6th/7th Edition
 
 Tafakkori, K. (2024). *Efficient and feature-rich integrated decision environment* [Python Library]. Retrieved from [https://github.com/feloopy/feloopy](https://github.com/feloopy/feloopy) (Original work published April 2024).
@@ -101,8 +103,12 @@ url          = {https://github.com/feloopy/feloopy/}
 }
 ```
 
+<br>
+<br>
+
 <details>
 <summary>Previous citations</summary>
+
 
 
 #### Versions before 0.3.5
@@ -122,4 +128,6 @@ publisher    = {GitHub},
 url          = {https://github.com/ktafakkori/feloopy/}
 }
 ```
+
+
 </details>
