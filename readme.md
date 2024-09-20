@@ -13,3 +13,18 @@
 
 <h2 align='center'>Efficient & Feature-Rich Integrated Decision Environment</h2>
 <div align="center" style="margin-bottom: 2px;">
+
+
+## Quick installation
+
+You can install `feloopy` inside a Python>=3.10.x virtual environment.
+
+```bash
+pip install -U "feloopy[stock]==0.3.5"
+```
+
+For supporting the developer, testing the latest version, and reporting bugs or contributing to the code base, you can use the following command:
+
+```bash
+pip install "feloopy[stock] @ git+https://github.com/ktafakkori/feloopy.git"
+```
