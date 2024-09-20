@@ -30,15 +30,16 @@
 
 FelooPy (/fɛlupaɪ/) is a user-friendly tool for coding, modeling, and solving decision problems, helping you focus on analysis. FelooPy offers and supports a wide range of mathematical and statistical models and algorithms for decision-making.
 
-- Linear or Non-Linear Programming (Exact algorithms for LP/NLP);
-- Integer or Mixed-Integer Programming (Exact algorithms for IP/MIP);
-- General Purpose Programming (Heuristic algorithms for any problem);
-- Constraint Programming (CP);
-- Multi-objective decision-making (MODM/MCDM);
-- Multi-attribute decision-making (MADM/MCDM);
+### Quick Features
+
+- **Linear & Non-Linear Programming**: Exact algorithms for LP/NLP.
+- **Integer & Mixed-Integer Programming**: Exact algorithms for IP/MIP.
+- **General Purpose Programming**: Heuristic algorithms for various problems.
+- **Constraint Programming**: Techniques for constraint satisfaction.
+- **Multi-Objective Decision-Making**: Optimizing multiple objectives (MODM/MCDM).
+- **Multi-Attribute Decision-Making**: Evaluating decisions based on multiple attributes (MADM/MCDM).
 
 <br>
-
 
 ### Quick Installation
 
