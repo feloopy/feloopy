@@ -18,8 +18,6 @@
 
 ![Version](https://img.shields.io/static/v1?label=Version&message=v0.3.5&color=orange&labelColor=blue)
 ![Release Date](https://img.shields.io/github/release-date/feloopy/feloopy?label=release&color=blue&labelColor=blue)
-[![Documentation](https://img.shields.io/static/v1?label=docs&message=latest&color=orange&labelColor=blue)](https://feloopy.readthedocs.io/en/latest/?badge=latest)
-[![Discord](https://img.shields.io/discord/1196153377969676399?color=orange&label=discord&labelColor=blue)](https://discord.gg/VpZDeG8wbv)
 [![Total Users](https://static.pepy.tech/personalized-badge/feloopy?period=total&units=international_system&left_color=blue&right_color=orange&left_text=total%20users)](https://pepy.tech/project/feloopy)
 ![License](https://img.shields.io/static/v1?label=license&message=MIT&color=orange&labelColor=blue)
 
