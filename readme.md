@@ -15,7 +15,7 @@
 </p>
 
 ![Version](https://img.shields.io/static/v1?label=Version&message=v0.3.5&color=%23fbad4c&labelColor=%233eb7c0&style=flat-square)
-![Release Date](https://img.shields.io/github/release-date/ktafakkori/feloopy?label=release&color=%23fbad4c&labelColor=%233eb7c0&style=flat-square)
+![Release Date](https://img.shields.io/github/release-date/feloopy/feloopy?label=release&color=%23fbad4c&labelColor=%233eb7c0&style=flat-square)
 [![Documentation](https://img.shields.io/static/v1?label=docs&message=latest&color=%23fbad4c&labelColor=%233eb7c0&style=flat-square)](https://feloopy.readthedocs.io/en/latest/?badge=latest)
 [![Discord](https://img.shields.io/discord/1196153377969676399?color=%23fbad4c&label=discord&labelColor=%233eb7c0&style=flat-square)](https://discord.gg/VpZDeG8wbv)
 ![License](https://img.shields.io/static/v1?label=license&message=MIT&color=%23fbad4c&labelColor=%233eb7c0&style=flat-square)
@@ -40,5 +40,5 @@ pip install -U "feloopy[stock]==0.3.5"
 For supporting the developer, testing the latest version, and reporting bugs or contributing to the codebase, use the following command:
 
 ```bash
-pip install "feloopy[stock] @ git+https://github.com/ktafakkori/feloopy.git"
+pip install "feloopy[stock] @ git+https://github.com/feloopy/feloopy.git"
 ```
