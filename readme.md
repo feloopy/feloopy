@@ -39,7 +39,7 @@ FelooPy (/fɛlupaɪ/) is a user-friendly tool for coding, modeling, and solving 
 - **General Purpose Programming**: Heuristic algorithms for various problems.
 - **Constraint Programming**: Techniques for constraint satisfaction.
 - **Multi-Objective Decision-Making**: Optimizing multiple objectives (MODM/MCDM).
-- **Multi-Attribute Decision-Making**: Evaluating decisions based on multiple attributes (MADM/MCDM).
+- **Multi-Attribute Decision-Making**: Evaluating opinions on alternatives using multiple attributes (MADM/MCDM).
 
 <br>
 
