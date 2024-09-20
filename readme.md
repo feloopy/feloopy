@@ -14,14 +14,13 @@
   <strong>Efficient & Feature-Rich Integrated Decision Environment</strong>
 </p>
 
-![Version](https://img.shields.io/static/v1?label=Version&message=v0.3.5&color=%23fbad4c&labelColor=%233eb7c0&style=flat-square)
-![Release Date](https://img.shields.io/github/release-date/feloopy/feloopy?label=release&color=%23fbad4c&labelColor=%233eb7c0&style=flat-square)
-[![Documentation](https://img.shields.io/static/v1?label=docs&message=latest&color=%23fbad4c&labelColor=%233eb7c0&style=flat-square)](https://feloopy.readthedocs.io/en/latest/?badge=latest)
-[![Discord](https://img.shields.io/discord/1196153377969676399?color=%23fbad4c&label=discord&labelColor=%233eb7c0&style=flat-square)](https://discord.gg/VpZDeG8wbv)
-![License](https://img.shields.io/static/v1?label=license&message=MIT&color=%23fbad4c&labelColor=%233eb7c0&style=flat-square)
-[![Total Users](https://img.shields.io/static/v1?label=total%20users&message=10k+&color=%23fbad4c&labelColor=%233eb7c0&style=flat-square)](https://pepy.tech/project/feloopy)
-[![Monthly Users](https://img.shields.io/static/v1?label=monthly%20users&message=1k+&color=%23fbad4c&labelColor=%233eb7c0&style=flat-square)](https://pypistats.org/packages/feloopy)
-![Source Users](https://img.shields.io/static/v1?label=source%20users&message=5k+&color=%23fbad4c&labelColor=%233eb7c0&style=flat-square)
+| Version                                                                                     | Release Date                                                                                     | Documentation                                                                                     | Discord                                                                                         |
+|---------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------|
+| ![Version](https://img.shields.io/static/v1?label=Version&message=v0.3.5&color=%23fbad4c&labelColor=%233eb7c0&style=flat-square) | ![Release Date](https://img.shields.io/github/release-date/feloopy/feloopy?label=release&color=%23fbad4c&labelColor=%233eb7c0&style=flat-square) | [![Documentation](https://img.shields.io/static/v1?label=docs&message=latest&color=%23fbad4c&labelColor=%233eb7c0&style=flat-square)](https://feloopy.readthedocs.io/en/latest/?badge=latest) | [![Discord](https://img.shields.io/discord/1196153377969676399?color=%23fbad4c&label=discord&labelColor=%233eb7c0&style=flat-square)](https://discord.gg/VpZDeG8wbv) |
+
+| Total Users                                                                                 | Monthly Users                                                                                   | Source Users                                                                                     | License                                                                                         |
+|---------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------|
+| [![Total Users](https://img.shields.io/static/v1?label=total%20users&message=10k+&color=%23fbad4c&labelColor=%233eb7c0&style=flat-square)](https://pepy.tech/project/feloopy) | [![Monthly Users](https://img.shields.io/static/v1?label=monthly%20users&message=1k+&color=%23fbad4c&labelColor=%233eb7c0&style=flat-square)](https://pypistats.org/packages/feloopy) | ![Source Users](https://img.shields.io/static/v1?label=source%20users&message=5k+&color=%23fbad4c&labelColor=%233eb7c0&style=flat-square) | ![License](https://img.shields.io/static/v1?label=license&message=MIT&color=%23fbad4c&labelColor=%233eb7c0&style=flat-square) |
 
 
 
