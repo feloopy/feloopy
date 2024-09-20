@@ -25,6 +25,22 @@ def generate_model(total_variables, directions, solver_name, solver_options, lb,
                 from ...algorithms.heuristic.GA import GA
             model_object = GA(f=total_variables, d=directions, s=solver_options.get('epoch', 100), t=solver_options.get('pop_size', 50), sc=solver_options.get('selection', 1), mu=solver_options.get('mutation_rate', 0.02), cr=solver_options.get('crossover_rate', 0.7), sfl=solver_options.get('survival_lb', 0.4), sfu=solver_options.get('survival_ub', 0.6), ac=solver_options.get('archive_cap', 50), rep=solver_options.get('episode', 1), ben=solver_options.get('benchmark', False))
 
+        case 'dgwo':
+            try:
+                from ...extras.algorithms.heuristic.DGWO import GWO
+            except ImportError:
+                from ...algorithms.heuristic.DGWO import GWO
+            model_object = GWO(f=total_variables, d=directions, s=solver_options.get('epoch', 100), t=solver_options.get(
+                'pop_size', 50), ac=solver_options.get('archive_cap', 50), rep=solver_options.get('episode', 1), ben=solver_options.get('benchmark', False))
+
+        case 'dga':
+            try:
+                from ...extras.algorithms.heuristic.DGA import GA
+            except ImportError:
+                from ...algorithms.heuristic.DGA import GA
+            model_object = GA(f=total_variables, d=directions, s=solver_options.get('epoch', 100), t=solver_options.get('pop_size', 50), sc=solver_options.get('selection', 1), mu=solver_options.get('mutation_rate', 0.02), cr=solver_options.get('crossover_rate', 0.7), sfl=solver_options.get('survival_lb', 0.4), sfu=solver_options.get('survival_ub', 0.6), ac=solver_options.get('archive_cap', 50), rep=solver_options.get('episode', 1), ben=solver_options.get('benchmark', False))
+
+
         case 'de':
             try:
                 from ...extras.algorithms.heuristic.DE import DE

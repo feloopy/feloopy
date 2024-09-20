@@ -220,6 +220,7 @@ class DataToolkit(FileManager):
     ## Parameters
 
     def _sample_list_or_array(self, name, init, size, replace=False, sort_result=False, return_indices=False, axis=None):
+        
         if isinstance(init, (list, range)):
             init = np.array(init)
 
@@ -227,20 +228,24 @@ class DataToolkit(FileManager):
             sampled_indices = self.random.choice(init.size, size=size, replace=replace)
         else:
             axis = np.atleast_1d(axis)
-            axis_size = init.shape[axis[0]] if len(axis) == 1 else np.prod([init.shape[i] for i in axis])
-            sampled_indices = self.random.choice(axis_size, size=size, replace=replace)
-
+            
+            for ax in axis:
+                axis_size = init.shape[ax]
+                sampled_indices = self.random.choice(axis_size, size=size, replace=replace)
+            
+                init = np.take(init, sampled_indices, axis=ax)
+        
         if return_indices:
             if sort_result:
                 sampled_indices.sort()
-            self.data[name] = sampled_indices
+            result = sampled_indices
         else:
-            sampled_data = init.flat[sampled_indices] if axis is None else np.take(init, sampled_indices, axis=axis)
+            result = init
             if sort_result:
-                sampled_data.sort()
-            self.data[name] = sampled_data
+                result.sort()
 
-        return self.data[name]
+        self.data[name] = result
+        return result
 
     def _sample_pandas_dataframe(self, name, init, size, replace=False, sort_result=False, return_indices=False, axis=None):
         axis = 0 if axis is None else axis 

@@ -1810,12 +1810,10 @@ class model(
                         else:
                             try:
                                 for k in it.product(*tuple(fix_dims(self.features['dimensions'][j]))):
-                                    print(k)
                                     if self.get(self.features['variables'][(i,j)][k]) not in [0, None]:
                                         print(f"│ {j}[{k}] =".replace("(", "").replace(")", ""), self.get(self.features['variables'][(i,j)][k]), " "* (box_width-(len(f"│ {j}[{k}] =".replace("(", "").replace(")", "")) + len(str(self.get(self.features['variables'][(i,j)][k])))) - 1) + "│")
                             except:
                                 for k in it.product(*tuple(fix_dims(self.features['dimensions'][j]))):
-                                    print(k)
                                     if self.get(self.features['variables'][(i,j)])[k] not in [0, None]:
                                         print(f"│ {j}[{k}] =".replace("(", "").replace(")", ""), self.get(self.features['variables'][(i,j)])[k], " "* (box_width-(len(f"│ {j}[{k}] =".replace("(", "").replace(")", "")) + len(str(self.get(self.features['variables'][(i,j)])[k]))) - 1) + "│")
 
