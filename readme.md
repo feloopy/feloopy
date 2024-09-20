@@ -30,6 +30,8 @@
 
 FelooPy (/fɛlupaɪ/) is a user-friendly tool for coding, modeling, and solving decision problems, helping you focus on analysis. FelooPy offers and supports a wide range of mathematical and statistical models and algorithms for decision-making.
 
+<br>
+
 ### Quick Features
 
 - **Linear & Non-Linear Programming**: Exact algorithms for LP/NLP.
