@@ -12,8 +12,10 @@
 
 <br>
 
+<p align="center" style="font-size: 24px; font-weight: bold; margin: 0;">
+  Efficient & Feature-Rich Integrated Decision Environment
+</p>
 
-<h2 align="center">Efficient & Feature-Rich Integrated Decision Environment</h2>
 
 <br>
 
