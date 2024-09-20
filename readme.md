@@ -12,6 +12,9 @@
 
 <h2 align="center">Efficient & Feature-Rich Integrated Decision Environment</h2>
 
+<br><br>
+
+
 ## Quick Installation
 
 You can install `feloopy` inside a Python>=3.10.x virtual environment:
