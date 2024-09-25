@@ -28,7 +28,7 @@
 
 ### Quick Intro
 
-FelooPy (/fɛlupaɪ/) is a user-friendly tool for coding, modeling, and solving decision problems, helping you focus on analysis. FelooPy offers and supports a wide range of mathematical and statistical models and algorithms for decision-making.
+FelooPy (/fɛlupaɪ/) is a user-friendly tool for coding, modeling, and solving decision problems. It helps you focus on analysis and offers and supports a wide range of mathematical and statistical models and algorithms for decision-making.
 
 <br>
 

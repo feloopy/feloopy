@@ -111,23 +111,20 @@ def generate_heuristic_variable(features, type, name, variable_dim, variable_bou
 
                 if type == 'bvar' or type == 'ivar':
                     
-                    
-
-                    return NumpyVariable(np.round(variable_bound[0] + agent[spread[0]:spread[1]] * (variable_bound[1] - variable_bound[0])).astype(int))
+                    return (np.round(variable_bound[0] + agent[spread[0]:spread[1]] * (variable_bound[1] - variable_bound[0])).astype(int))
 
                 elif type == 'pvar' or type == 'fvar':
 
-                    return NumpyVariable(variable_bound[0] + agent[spread[0]:spread[1]] * (variable_bound[1] - variable_bound[0]))
+                    return (variable_bound[0] + agent[spread[0]:spread[1]] * (variable_bound[1] - variable_bound[0]))
 
                 else:
 
-                    return NumpyVariable(np.argsort(agent[spread[0]:spread[1]]))
+                    return (np.argsort(agent[spread[0]:spread[1]]))
 
             else:
 
                 if type == 'bvar' or type == 'ivar':
                     
-       
                     return NumpyVariable(np.reshape(np.round(variable_bound[0] + agent[spread[0]:spread[1]] * (variable_bound[1] - variable_bound[0])), [len(dims) for dims in variable_dim]).astype(int))
 
                 elif type == 'pvar' or type == 'fvar':
