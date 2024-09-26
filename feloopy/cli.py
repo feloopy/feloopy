@@ -54,7 +54,6 @@ def main():
 
    args = parser.parse_args()
 
-
    command_functions = {
        "setup": run_setup_file,
        "detect": cli_detect,

@@ -2401,10 +2401,9 @@ class model(
         """
 
         if self.features['interface_name'] in ['gekko']:
-
             return self.model.sigmoid(input)
         else:
-            return 1 / (1 + np.exp(-x))
+            return 1 / (1 + np.exp(-input))
         
     def exponent(self, input):
 

@@ -30,8 +30,7 @@ class DataToolkit(FileManager):
         self.lfe = self.load_from_excel
         self.memorize=memorize
         self.gaussian = self.normal
-        
-        self.store = self.__keep
+        self.store = self.par = self.__keep
 
     def sets(self,*args):
         return it.product(*args)
@@ -45,7 +44,6 @@ class DataToolkit(FileManager):
                     dim = [range(d) if not isinstance(d, range) else d for d in dim]
                 else:
                     dim = [len(d) if not isinstance(d, int) else d for d in dim]
-
         return dim
     
     def __keep(self, name, value, neglect=False):
@@ -58,7 +56,6 @@ class DataToolkit(FileManager):
             return value
     
     ## Sets
-     
     def _convert_to_set(self, input_set):
         if isinstance(input_set, set):
             return input_set
@@ -189,6 +186,9 @@ class DataToolkit(FileManager):
         
         return self.__keep(name, result, neglect)
     
+    def array(self, input):
+        return np.array(input)
+
     def alias(self, name, init, neglect=False):
         result=init
         return self.__keep(name, result, neglect)
@@ -269,7 +269,7 @@ class DataToolkit(FileManager):
             self.data[name] = sampled_data
 
         return self.data[name]
-       
+
     def zeros(self, name, dim=0, neglect=False):
         dim = self.__fix_dims(dim,is_range=False)
         if dim == 0:
