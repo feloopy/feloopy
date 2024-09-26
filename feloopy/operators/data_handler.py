@@ -217,6 +217,13 @@ class DataToolkit(FileManager):
             result = result.symmetric_difference(s)
         return self.__keep(name, result, neglect)
 
+    def display(self, input=None):
+        from pprint import pprint
+        if input:
+            pprint(input, width=90, indent=0, sort_dicts=True)
+        else:
+            pprint(self.data, width=90, indent=0, sort_dicts=True)
+    
     ## Parameters
 
     def _sample_list_or_array(self, name, init, size, replace=False, sort_result=False, return_indices=False, axis=None):
