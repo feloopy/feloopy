@@ -10,6 +10,7 @@ import platform
 import sys
 import time
 import warnings
+import concurrent.futures
 
 from typing import Literal, Optional, Union
 from contextlib import suppress,redirect_stdout
@@ -1011,7 +1012,6 @@ class model(
                     for k in it.product(*tuple(fix_dims(self.features['dimensions'][j]))):
                         init_generator.generate_init(self.features,self.features['variables'][(i,j)][k],input_tensor[k],fix=True)
     
-    
     def grad(self, value):
         if self.features['agent_status'] != 'idle':            
             self.total_features = int(len(self.agent[:,:-2][0])/2)            
@@ -1027,6 +1027,7 @@ class model(
             self.grad_counter+=len(values)
         else:
             pass
+
     def obj(self, expression=0, direction=None, label=None):
             
             """
@@ -1164,8 +1165,6 @@ class model(
         
                     self.solution = solution_generator.generate_solution(self.features)
                     
-
-
                 try:
                     self.obj_val = self.get_objective()
                     self.status = self.get_status()
@@ -1179,6 +1178,17 @@ class model(
                 if self.features['agent_status'] == 'idle':
 
                     "Do nothing"
+
+                    self.current_min = [-np.inf for i in range(len(directions))]
+                    self.current_max = [ np.inf for i in range(len(directions))]
+                    self.current_ave = [ np.inf for i in range(len(directions))]
+                    self.current_std = [ np.inf for i in range(len(directions))]
+                    
+                    if len(self.current_min)==1:
+                        self.current_min = self.current_min[0]
+                        self.current_max = self.current_max[0]
+                        self.current_ave = np.inf
+                        self.current_std = np.inf
 
                 else:
                     
@@ -1214,14 +1224,20 @@ class model(
                                 self.agent[:, -2] = 2
 
                             if type(obj_id) != str:
+                                
+                                term = np.reshape(self.features['objectives'][obj_id], [self.agent.shape[0],])
 
                                 if directions[obj_id] == 'max':
-                                    self.agent[:, -1] = np.reshape(self.features['objectives'][obj_id], [self.agent.shape[0],]) - np.reshape(
+                                    self.agent[:, -1] = term - np.reshape(
+                                        self.features['penalty_coefficient'] * (self.penalty)**2, [self.agent.shape[0],])
+                                if directions[obj_id] == 'min':
+                                    self.agent[:, -1] = term + np.reshape(
                                         self.features['penalty_coefficient'] * (self.penalty)**2, [self.agent.shape[0],])
 
-                                if directions[obj_id] == 'min':
-                                    self.agent[:, -1] = np.reshape(self.features['objectives'][obj_id], [self.agent.shape[0],]) + np.reshape(
-                                        self.features['penalty_coefficient'] * (self.penalty)**2, [self.agent.shape[0],])
+                                self.current_min = np.min(self.agent[:, -1])
+                                self.current_max = np.max(self.agent[:, -1])
+                                self.current_ave = np.mean(self.agent[:, -1])
+                                self.current_std = np.std(self.agent[:, -1])
 
                             else:
 
@@ -1231,13 +1247,21 @@ class model(
                                 
                                 self.features['objectives'] = np.array(self.features['objectives']).T
 
+                                term =  self.features['objectives'][:,i]
+
                                 for i in range(self.features['objective_counter'][0]):
 
                                     if directions[i] == 'max':
-                                        self.agent[:, -2-total_obj+i] = self.features['objectives'][:,i] - self.features['penalty_coefficient'] * (self.penalty)**2
+                                        self.agent[:, -2-total_obj+i] = term - self.features['penalty_coefficient'] * (self.penalty)**2
 
                                     if directions[i] == 'min':
-                                        self.agent[:, -2-total_obj+i] = self.features['objectives'][:,i] + self.features['penalty_coefficient'] * (self.penalty)**2
+                                        self.agent[:, -2-total_obj+i] = term + self.features['penalty_coefficient'] * (self.penalty)**2
+
+                                self.current_min = np.min(self.agent[:, -2-total_obj:-2], axis = 0)
+                                self.current_max = np.max(self.agent[:, -2-total_obj:-2], axis = 0)
+                                self.current_ave = np.mean(self.agent[:, -2-total_obj:-2], axis =0)
+                                self.current_std = np.std(self.agent[:, -2-total_obj:-2], axis = 0)
+
                         else:
 
                             self.penalty = np.zeros(np.shape(self.agent)[0])
@@ -1261,6 +1285,9 @@ class model(
                                 if directions[obj_id] == 'min':
                                     self.sing_result = np.reshape(self.features['objectives'][obj_id], [self.agent.shape[0],]) + np.reshape(self.features['penalty_coefficient'] * (self.penalty)**2, [self.agent.shape[0],])
 
+                                self.current_min = np.min(self.sing_result)
+                                self.current_max = np.max(self.sing_result)
+                                
                             else:
 
                                 total_obj = self.features['objective_counter'][0]
@@ -1275,6 +1302,9 @@ class model(
 
                                     if directions[i] == 'min':
                                         self.sing_result.append(self.features['objectives'][i] + self.features['penalty_coefficient'] * (self.penalty)**2)
+                                self.current_min = np.min(np.array(self.sing_result), axis = 0)
+                                self.current_max = np.max(np.array(self.sing_result), axis = 0)
+
                     else:
 
                         self.penalty = 0
@@ -1294,6 +1324,9 @@ class model(
                                 self.response = self.features['objectives'][obj_id] + \
                                     self.features['penalty_coefficient'] * \
                                     (self.penalty-0)**2
+
+                            self.current_min = np.min(self.response)
+                            self.current_max = np.max(self.response)
 
                         else:
 
@@ -1315,7 +1348,8 @@ class model(
                                         self.features['penalty_coefficient'] * \
                                         (self.penalty)**2
                         
-                        
+                            self.current_min = np.min(np.array(self.response), axis = 0)
+                            self.current_max = np.max(np.array(self.response), axis = 0)
 
     def healthy(self):
         try:
@@ -1549,7 +1583,7 @@ class model(
             now = datetime.datetime.now()
             date_str = now.strftime("Date: %Y-%m-%d")
             time_str = now.strftime("Time: %H:%M:%S")
-            tline_text("FelooPy v0.3.5")
+            tline_text("FelooPy v0.3.6")
             empty_line()
             two_column(date_str, time_str)
             two_column(f"Interface: {self.interface_name}", f"Solver: {self.solver_name}")
@@ -3747,7 +3781,7 @@ class Implement:
             now = datetime.datetime.now()
             date_str = now.strftime("Date: %Y-%m-%d")
             time_str = now.strftime("Time: %H:%M:%S")
-            tline_text("FelooPy v0.3.5")
+            tline_text("FelooPy v0.3.6")
             empty_line()
             two_column(date_str, time_str)
             two_column(f"Interface: {self.interface_name}", f"Solver: {self.solver_name}")
@@ -4858,7 +4892,7 @@ class MADM:
         date_str = now.strftime("Date: %Y-%m-%d")
         time_str = now.strftime("Time: %H:%M:%S")
 
-        tline_text("FelooPy v0.3.5")
+        tline_text("FelooPy v0.3.6")
         empty_line()
         two_column(date_str, time_str)
 
@@ -5036,7 +5070,7 @@ class search(model,Implement):
         method="exact",
         approach = "nwsm",
         interface="pymprog",
-        directions=[],
+        directions=None,
         solver="glpk",
         dataset = None,
         key_params = [],
@@ -5056,8 +5090,14 @@ class search(model,Implement):
         cpu_threads=None,
         absolute_gap=None,
         relative_gap=None,
+        track_history=False,
         *args, **kwargs
     ):
+
+        validate_existence(
+                label="directions", 
+                input_value=directions, 
+                condition=True if method!="constraint" else False)
 
         self.key_params = key_params
         self.key_vars = key_vars
@@ -5087,6 +5127,7 @@ class search(model,Implement):
         self.repeat = repeat
         self.progress = progress
         self.mgt = 0
+        self.track_history = track_history
 
         self.number_of_objectives = len(self.directions)
         
@@ -5111,7 +5152,13 @@ class search(model,Implement):
             
         if report:
             self.report()
-    
+
+        if track_history:
+            self.best_epoch_objective = []
+            self.best_overall_objective = []
+            self.best_epoch_trajectory = []
+            self.best_overall_trajectory = []
+
     def clean_report(self,**kwargs):
 
         command = "cls" if os.name == "nt" else "clear"
@@ -5129,23 +5176,54 @@ class search(model,Implement):
             self.em = self.environment(self.em, *self.args, **self.kwargs)
             if self.interface =="jump" and self.inputdata:
                 self.em.jlcode_data(self.inputdata)
-          
+
         if self.method in ["heuristic"]:
 
             if len(self.directions)==1:
+
+                if self.track_history:
+                    self.lb_record = []
+                    self.ub_record = []
+                
+                    if self.interface == "feloopy":
+                        self.ave_record = []
+                        self.std_record = []
+                
                 def instance(X):
+                    
                     lm = model(method=self.method, name=self.name, interface=self.interface, agent=X, no_agents=self.options.get("pop_size", 50))
                     lm = environment(lm, *self.args, **self.kwargs)
                     lm.sol(directions=self.directions,solver=self.solver,show_log=self.verbose, solver_options=self.options)
+                    if self.track_history:
+                        self.lb_record.append(lm.current_min)
+                        self.ub_record.append(lm.current_max)
+                        if self.interface == "feloopy":
+                            self.ave_record.append(lm.current_ave)
+                            self.std_record.append(lm.current_std)
                     return lm[X]
                 
                 self.em = Implement(instance)
 
             else:
+
+                if self.track_history:
+                    self.lb_record = []
+                    self.ub_record = []
+                
+                    if self.interface == "feloopy":
+                        self.ave_record = []
+                        self.std_record = []
+
                 def instance(X):
                     m = model(self.name,self.method, self.interface,X, no_agents=self.options.get("pop_size", 50))
                     m = self.environment(m, *self.args, **self.kwargs)
                     m.sol(self.directions, self.solver, self.options, obj_id='all')
+                    if self.track_history:
+                        self.lb_record.append(m.current_min)
+                        self.ub_record.append(m.current_max)
+                        if self.interface == "feloopy":
+                            self.ave_record.append(m.current_ave)
+                            self.std_record.append(m.current_std)
                     return m[X]
 
                 self.em = implement(instance)
@@ -5164,28 +5242,90 @@ class search(model,Implement):
         import time
 
         solving_complete = False
-        
-        if not verbose:
-            """
-            def animate():
-                while not solving_complete:
-                    for frame in ['◴', '◷', '◶', '◵']:
-                        sys.stdout.write('\rSolving... ' + frame + ' ')
-                        sys.stdout.flush()
-                        time.sleep(0.1)
-
-            animate_thread = threading.Thread(target=animate)
-            animate_thread.daemon = True
-            animate_thread.start()
-            """
             
         if  self.number_of_objectives==1:
             if self.method in ["exact", "convex", "constraint", "uncertain"]:
                 self.em.sol(directions=self.directions, solver=self.solver, show_log=verbose, email=self.email, time_limit=self.time_limit, cpu_threads=self.cpu_threads,absolute_gap=self.absolute_gap, relative_gap=self.relative_gap)
                     
             elif self.method == "heuristic":
-                self.em.sol(penalty_coefficient=self.penalty_coefficient, number_of_times=self.repeat)
-        else:
+                
+                self.em.sol(penalty_coefficient=self.penalty_coefficient, number_of_times=self.repeat,show_log=verbose)
+                
+                if self.track_history:
+
+                    if self.interface in ['mealpy', 'niapy', 'pygad']: 
+
+                        self.best_max = [0] * (self.options["epoch"] - 1)
+                        self.best_min = [0] * (self.options["epoch"] - 1)
+                        self.middle = [0] * (self.options["epoch"] - 1)
+                        self.range = [0] * (self.options["epoch"] - 1)
+                        self.average = [0] * (self.options["epoch"] - 1)
+                        self.std = [0] * (self.options["epoch"] - 1)
+                        
+                        for i in range(1, self.options["epoch"]):
+                            pop_fit_per_epoch = self.ub_record[i * self.options["pop_size"]:(i + 1) * self.options["pop_size"]]
+                            
+                            max_current = np.max(pop_fit_per_epoch)
+                            min_current = np.min(pop_fit_per_epoch)
+                            ave_current = np.mean(pop_fit_per_epoch)
+                            std_current = np.std(pop_fit_per_epoch)
+
+                            if i == 1:
+                                self.best_max[i - 1] = max_current
+                                self.best_min[i - 1] = min_current
+                            else:
+                                self.best_max[i - 1] = max(max_current, self.best_max[i - 2])
+                                self.best_min[i - 1] = min(min_current, self.best_min[i - 2])
+
+                            self.average[i - 1] = ave_current
+                            self.std[i - 1] = std_current
+                            self.middle[i - 1] = (self.best_max[i - 1] + self.best_min[i - 1]) / 2
+                            self.range[i - 1] = self.best_max[i - 1] - self.best_min[i - 1]
+
+                        self.final_min = self.best_min[-1]
+                        self.final_max = self.best_max[-1]
+                        self.lb_for_min = np.array(self.best_max) - self.range[-1]
+                        self.ub_for_max = np.array(self.best_min) + self.range[-1]
+
+                        self.stagnation = np.sum(np.array(self.ub_for_max) - np.array(self.best_max) <= 1e-6) / self.options["epoch"]
+                    
+                    else:
+
+                        self.best_max = [0] * (self.options["epoch"] - 1)
+                        self.best_min = [0] * (self.options["epoch"] - 1)
+                        self.middle = [0] * (self.options["epoch"] - 1)
+                        self.range = [0] * (self.options["epoch"] - 1)
+                        self.average = [0] * (self.options["epoch"] - 1)
+                        self.std = [0] * (self.options["epoch"] - 1)
+                        
+                        for i in range(1, self.options["epoch"]):
+
+                            min_per_epoch = self.lb_record[i]
+                            max_per_epoch = self.ub_record[i]
+                            ave_per_epoch = self.ave_record[i]
+                            std_per_epoch = self.std_record[i]
+
+                            if i == 1:
+                                self.best_max[i - 1] = max_per_epoch
+                                self.best_min[i - 1] = min_per_epoch
+                            else:
+                                self.best_max[i - 1] = max(max_per_epoch, self.best_max[i - 2])
+                                self.best_min[i - 1] = min(min_per_epoch, self.best_min[i - 2])
+
+                            self.average[i - 1] = ave_per_epoch
+                            self.std[i - 1] = std_per_epoch
+                            self.middle[i - 1] = (self.best_max[i - 1] + self.best_min[i - 1]) / 2
+                            self.range[i - 1] = self.best_max[i - 1] - self.best_min[i - 1]
+
+                        self.final_min = self.best_min[-1]
+                        self.final_max = self.best_max[-1]
+                        self.lb_for_min = np.array(self.best_max) - self.range[-1]
+                        self.ub_for_max = np.array(self.best_min) + self.range[-1]
+
+                        self.stagnation = np.sum(np.array(self.ub_for_max) - np.array(self.best_max) <= 1e-6) / self.options["epoch"]
+                
+
+        else:   
             if self.method in ["exact", "convex", "constraint", "uncertain"]:
                 
                 try:
@@ -5213,8 +5353,54 @@ class search(model,Implement):
                                          relative_gap=self.relative_gap
                                          )
                 self.time_solve_end = timeit.default_timer()
+
             elif self.method == "heuristic":
-                self.em.solve(show_log=False, penalty_coefficient=self.penalty_coefficient)
+
+                self.em.solve(show_log=verbose, penalty_coefficient=self.penalty_coefficient)
+
+                if self.track_history:
+
+                    self.best_max = [[0] * (self.options["epoch"] - 1)]*self.number_of_objectives
+                    self.best_min = [[0] * (self.options["epoch"] - 1)]*self.number_of_objectives
+                    self.middle   = [[0] * (self.options["epoch"] - 1)]*self.number_of_objectives
+                    self.range    = [[0] * (self.options["epoch"] - 1)]*self.number_of_objectives
+                    self.average  = [[0] * (self.options["epoch"] - 1)]*self.number_of_objectives
+                    self.std      = [[0] * (self.options["epoch"] - 1)]*self.number_of_objectives
+                    self.lb_for_min = [[0] * (self.options["epoch"] - 1)]*self.number_of_objectives
+                    self.ub_for_max  = [[0] * (self.options["epoch"] - 1)]*self.number_of_objectives
+
+
+                    for i in range(1, self.options["epoch"]):
+
+                        min_per_epoch = self.lb_record[i]
+                        max_per_epoch = self.ub_record[i]
+                        ave_per_epoch = self.ave_record[i]
+                        std_per_epoch = self.std_record[i]
+
+                        if i == 1:
+                            for j in range(self.number_of_objectives):
+                                self.best_max[j][i - 1] = max_per_epoch[j]
+                                self.best_min[j][i - 1] = min_per_epoch[j]
+                        else:
+                            for j in range(self.number_of_objectives):
+                                self.best_max[j][i - 1] = max(max_per_epoch[j], self.best_max[j][i - 2])
+                                self.best_min[j][i - 1] = min(min_per_epoch[j], self.best_min[j][i - 2])
+                        
+                        for j in range(self.number_of_objectives):
+                            self.average[j][i - 1] = ave_per_epoch[j]
+                            self.std[j][i - 1] = std_per_epoch[j]
+                            self.middle[j][i - 1] = (self.best_max[j][i - 1] + self.best_min[j][i - 1]) / 2
+                            self.range[j][i - 1] = self.best_max[j][i - 1] - self.best_min[j][i - 1]
+                    
+                    for i in range(1, self.options["epoch"]):
+                        for j in range(self.number_of_objectives):
+                            self.lb_for_min[j][i - 1] = np.array(self.best_max[j][i-1]) - self.range[j][-1]
+                            self.ub_for_max[j][i - 1] = np.array(self.best_min[j][i-1]) + self.range[j][-1]
+
+                    self.final_min = self.best_min[-1]
+                    self.final_max = self.best_max[-1]
+
+                    self.stagnation = np.sum(np.array(self.ub_for_max) - np.array(self.best_max) <= 1e-6) / self.options["epoch"]
 
         if self.method == "madm":
             self.time_solve_begin = timeit.default_timer()
@@ -5229,7 +5415,6 @@ class search(model,Implement):
                     
                     if self.method not in ["heuristic"]:
                         self.solutions = self.result[3]
-
 
                     else:
                         num_pareto = self.em.get_obj().shape[0]
@@ -5520,7 +5705,7 @@ class search(model,Implement):
         formatted_date = current_datetime.strftime("%Y-%m-%d")
         formatted_time = current_datetime.strftime("%H:%M:%S")
     
-        box.top(left="FelooPy v0.3.5", right="Released July 2024")
+        box.top(left="FelooPy v0.3.6", right="Released October 2024")
         box.empty()
         
         box.clear_columns(list_of_strings=["", f"Interface: {self.interface}"], label=f"Date: {formatted_date}", max_space_between_elements=4)
@@ -5698,6 +5883,12 @@ class search(model,Implement):
                         box.row(left= show(k), right=' '.join(format_string(j,ensure_length=True) for j in self.objective_values[k]))
             except:
                 pass
+
+            if self.track_history:
+                try:
+                    box.row(left="Stagnation", right=format_string(self.stagnation,ensure_length=True))
+                except:
+                    pass
                             
             box.empty()
             box.bottom()
@@ -5868,3 +6059,32 @@ class search(model,Implement):
             dt.data["extra"] = extra
 
         dt.save(name=name)
+
+class parallel_search:
+    def __init__(self, configurations, parallelization_method="thread", max_workers=None):
+        self.configurations = configurations
+        self.method = parallelization_method
+        self.max_workers = max_workers
+        self.results = []
+        self.run_parallel_searches()
+
+    def run_parallel_searches(self):
+        if self.method == "thread":
+            executor_class = concurrent.futures.ThreadPoolExecutor
+        else:
+            executor_class = concurrent.futures.ProcessPoolExecutor
+
+        with executor_class(max_workers=self.max_workers) as executor:
+            futures = [executor.submit(self._run_single_search, config) for config in self.configurations]
+            self.results = []
+            for future in concurrent.futures.as_completed(futures):
+                try:
+                    result = future.result()
+                except Exception as e:
+                    result = f"Error occurred: {str(e)}"
+                self.results.append(result)
+        return self.results
+
+    def _run_single_search(self, config):
+        search_instance = search(**config)
+        return search_instance

@@ -17,7 +17,7 @@ def generate_model(solver_name, solver_options):
         'cuckoosearch-cs': ('niapy.algorithms.basic', 'cs', 'CuckooSearch'),
         'catswarmoptimization-cso': ('niapy.algorithms.basic', 'cso', 'CatSwarmOptimization'),
         'differentialevolution-de': ('niapy.algorithms.basic', 'de', 'DifferentialEvolution'),
-        'dynnpdifferentialevolution-de': ('niapy.algorithms.basic', 'de', 'DynNpDifferentialEvolution'),,
+        'dynnpdifferentialevolution-de': ('niapy.algorithms.basic', 'de', 'DynNpDifferentialEvolution'),
         'agingnpdifferentialevolution-de': ('niapy.algorithms.basic', 'de', 'AgingNpDifferentialEvolution'),
         'multistrategydifferentialevolution-de': ('niapy.algorithms.basic', 'de', 'MultiStrategyDifferentialEvolution'),
         'dynnpmultistrategydifferentialevolution-de': ('niapy.algorithms.basic', 'de', 'DynNpMultiStrategyDifferentialEvolution'),

@@ -22,11 +22,8 @@ class DataToolkit(FileManager):
     def __init__(self, key=None, memorize=True):
         
         self.data = dict()
-        self.history = dict()
         self.seed= key
         self.random = np.random.default_rng(key)
-        self.criteria_directions = dict()
-        self.tstart = self.vstart = self.start
         self.lfe = self.load_from_excel
         self.memorize=memorize
         self.gaussian = self.normal
@@ -586,28 +583,13 @@ class DataToolkit(FileManager):
                     result = {key: '#{:06x}'.format(self.random.integers(0, 0xFFFFFF)) for key in it.product(*dim)}
         return self.__keep(name, result, neglect)
     
-    def start(self, name, value, direction=None):
-        self.criteria_directions[name] = direction
+    def start_epoch_min(self):
+        self.data["epoch_min"] = []
+
+    def store_epoch_min(self, current_obj):
         self.data[name] = [value]
 
-    def update(self, names: list, criteria: list, values: list, compared_with: list):
-        xcounter = 0
-        for name in names:
-            counter = 0
-            for criterion in criteria:
-                if self.criteria_directions[criterion] == "max":
-                    if compared_with[counter] >= self.data[criterion][-1]:
-                        self.data[name] = values[xcounter]
-                        self.data[criterion].append(compared_with[counter])
-                elif self.criteria_directions[criterion] == "min":
-                    if compared_with[counter] <= self.data[criterion][-1]:
-                        self.data[name] = values[xcounter]
-                        self.data[criterion].append(compared_with[counter])
-                else:
-                    self.data[name] = values[xcounter]
-                    self.data[criterion].append(compared_with[counter])
-                counter += 1
-            xcounter += 1
+
 
     def sample(self, name, init, size, replace=False, sort_result=False, reset_index=False, return_indices=False, axis=None, neglect=False):
 

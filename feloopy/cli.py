@@ -35,7 +35,7 @@ def main():
 
    script_parser = subparsers.add_parser("run")
    script_parser.add_argument("file", nargs='?')
-   
+
    ext_parser = subparsers.add_parser("ext")
    ext_parser.add_argument("extensions", nargs='*', help="Extensions to install")
 

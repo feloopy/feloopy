@@ -81,7 +81,6 @@ def generate_model(total_variables, directions, solver_name, solver_options, lb,
             model_object = PSO(f=total_variables, d=directions, s=solver_options.get('epoch', 100), t=solver_options.get('pop_size', 50), w=solver_options.get('velocity_weight', 0.8), c1=solver_options.get(
                 'p_best_weight', 0.1), c2=solver_options.get('g_best_weight', 0.1), ac=solver_options.get('archive_cap', 50), rep=solver_options.get('episode', 1), ben=solver_options.get('benchmark', False))
 
-
         case 'adam':
             try:
                 from ...extras.algorithms.heuristic.gradient.adam import ADAM
@@ -99,7 +98,6 @@ def generate_model(total_variables, directions, solver_name, solver_options, lb,
             model_object = NADAM(f=total_variables, d=directions, lb=lb, ub=ub, s=solver_options.get(
                 'epoch', 100), t=1, rep=solver_options.get('episode', 1), lr=solver_options.get('learning_rate', 0.01), b1=solver_options.get(
                 'beta_1', 0.9), b2=solver_options.get('beta_2', 0.999), ben=solver_options.get('benchmark', False))
-
 
         case 'adamax':
             try:
