@@ -1,7 +1,6 @@
 # Copyright (c) 2022-2024, Keivan Tafakkori. All rights reserved.
 # See the file LICENSE file for licensing details.
 
-
 import importlib
 import itertools as it
 import math as mt
@@ -715,8 +714,6 @@ SPECIAL_ALGORITHMS = [
     ['wings_method', 'pydecision'],
     ['opa_method', 'pydecision'],
 ]
-
-
 
 class model(
     TensorVariableClass,
@@ -2650,8 +2647,6 @@ end
         else:
             self.features["jlcode_data"]=code
 
-# Aliases
-
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 class Implement:
@@ -3961,8 +3956,6 @@ class Implement:
                     else:
                         left_align(f"{i} = {numpy_var}")
                                             
-# Alternatives for defining this class:
-            
 construct = make_model = implementor = implement = Implement
 
 class MADM:
@@ -4974,92 +4967,6 @@ class MADM:
 
 madm = MADM
 
-class feloop_model(model):
-    def __init__(self,name=None, agent=None):
-        if agent==None:
-            super().__init__('exact', name, 'feloopy')
-        else:
-            super().__init__('heuristic', name, 'feloopy', agent=agent)
-
-class copt_model(model):
-    def __init__(self,name='x'):
-        super().__init__('exact', name, 'copt')
-
-class cplex_cp_model(model):
-    def __init__(self,name='x'):
-        super().__init__('constraint', name, 'cplex_cp')
-
-class cplex_model(model):
-    def __init__(self,name='x'):
-        super().__init__('exact', name, 'cplex')
-
-class cylp_model(model):
-    def __init__(self,name='x'):
-        super().__init__('exact', name, 'cylp')
-
-class cvxpy_model(model):
-    def __init__(self,name='x'):
-        super().__init__('exact', name, 'cvxpy')
-
-class gekko_model(model):
-    def __init__(self,name='x'):
-        super().__init__('exact', name, 'gekko')
-
-class gurobi_model(model):
-    def __init__(self,name='x'):
-        super().__init__('exact', name, 'gurobi')
-
-class gams_model(model):
-    def __init__(self,name='x'):
-        super().__init__('exact', name, 'gams')
-
-class linopy_model(model):
-    def __init__(self,name='x'):
-        super().__init__('exact', name, 'linopy')
-
-class mip_model(model):
-    def __init__(self,name='x'):
-        super().__init__('exact', name, 'mip')
-
-class ortools_cp_model(model):
-    def __init__(self,name='x'):
-        super().__init__('constraint', name, 'ortools_cp')
-
-class ortools_model(model):
-    def __init__(self,name='x'):
-        super().__init__('exact', name, 'ortools')
-
-class picos_model(model):
-    def __init__(self,name='x'):
-        super().__init__('exact', name, 'picos')
-
-class pulp_model(model):
-    def __init__(self,name='x'):
-        super().__init__('exact', name, 'pulp')
-
-class pyomo_model(model):
-    def __init__(self,name='x'):
-        super().__init__('exact', name, 'pyomo')
-
-class pymprog_model(model):
-    def __init__(self,name='x'):
-        super().__init__('exact', name, 'pymprog')
-
-class rsome_dro_model(model):
-    def __init__(self,name='x'):
-        super().__init__('exact', name, 'rsome_dro')
-
-class rsome_ro_model(model):
-    def __init__(self,name='x'):
-        super().__init__('exact', name, 'rsome_ro')
-
-class seeker_model(model):
-    def __init__(self,name='x'):
-        super().__init__('exact', name, 'seeker')
-
-class xpress_model(model):
-    def __init__(self,name='x'):
-        super().__init__('exact', name, 'xpress')
 
 class search(model,Implement):
 
@@ -6088,3 +5995,91 @@ class parallel_search:
     def _run_single_search(self, config):
         search_instance = search(**config)
         return search_instance
+
+class feloop_model(model):
+    def __init__(self,name=None, agent=None):
+        if agent==None:
+            super().__init__('exact', name, 'feloopy')
+        else:
+            super().__init__('heuristic', name, 'feloopy', agent=agent)
+
+class copt_model(model):
+    def __init__(self,name='x'):
+        super().__init__('exact', name, 'copt')
+
+class cplex_cp_model(model):
+    def __init__(self,name='x'):
+        super().__init__('constraint', name, 'cplex_cp')
+
+class cplex_model(model):
+    def __init__(self,name='x'):
+        super().__init__('exact', name, 'cplex')
+
+class cylp_model(model):
+    def __init__(self,name='x'):
+        super().__init__('exact', name, 'cylp')
+
+class cvxpy_model(model):
+    def __init__(self,name='x'):
+        super().__init__('exact', name, 'cvxpy')
+
+class gekko_model(model):
+    def __init__(self,name='x'):
+        super().__init__('exact', name, 'gekko')
+
+class gurobi_model(model):
+    def __init__(self,name='x'):
+        super().__init__('exact', name, 'gurobi')
+
+class gams_model(model):
+    def __init__(self,name='x'):
+        super().__init__('exact', name, 'gams')
+
+class linopy_model(model):
+    def __init__(self,name='x'):
+        super().__init__('exact', name, 'linopy')
+
+class mip_model(model):
+    def __init__(self,name='x'):
+        super().__init__('exact', name, 'mip')
+
+class ortools_cp_model(model):
+    def __init__(self,name='x'):
+        super().__init__('constraint', name, 'ortools_cp')
+
+class ortools_model(model):
+    def __init__(self,name='x'):
+        super().__init__('exact', name, 'ortools')
+
+class picos_model(model):
+    def __init__(self,name='x'):
+        super().__init__('exact', name, 'picos')
+
+class pulp_model(model):
+    def __init__(self,name='x'):
+        super().__init__('exact', name, 'pulp')
+
+class pyomo_model(model):
+    def __init__(self,name='x'):
+        super().__init__('exact', name, 'pyomo')
+
+class pymprog_model(model):
+    def __init__(self,name='x'):
+        super().__init__('exact', name, 'pymprog')
+
+class rsome_dro_model(model):
+    def __init__(self,name='x'):
+        super().__init__('exact', name, 'rsome_dro')
+
+class rsome_ro_model(model):
+    def __init__(self,name='x'):
+        super().__init__('exact', name, 'rsome_ro')
+
+class seeker_model(model):
+    def __init__(self,name='x'):
+        super().__init__('exact', name, 'seeker')
+
+class xpress_model(model):
+    def __init__(self,name='x'):
+        super().__init__('exact', name, 'xpress')
+
