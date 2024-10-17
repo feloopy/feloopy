@@ -6082,4 +6082,3 @@ class seeker_model(model):
 class xpress_model(model):
     def __init__(self,name='x'):
         super().__init__('exact', name, 'xpress')
-
