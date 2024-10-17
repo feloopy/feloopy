@@ -1,10 +1,10 @@
 # Code of Conduct
 
-## Our Commitment
+## Commitments
 
 We pledge to create a respectful and inclusive community where everyone can participate without harassment, regardless of their background, identity, or beliefs.
 
-## Our Expectations
+## Expectations
 
 Positive behaviors we encourage in our community:
 
@@ -22,7 +22,7 @@ Unacceptable behaviors include:
 - Sharing others' private information without permission.
 - Any behavior deemed unprofessional.
 
-## Enforcement
+## Enforcements
 
 Community leaders will enforce these standards:
 
