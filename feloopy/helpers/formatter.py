@@ -323,6 +323,8 @@ class report:
 
         for key in dict_var.keys():
             index_str = str(key).replace("(","[").replace(")","]")
+            if "[" in str(index_str): index_str = index_str.replace("[","").replace("]","")
+            else: index_str = index_str
             value_str = str(dict_var[key])
             if float(value_str) != 0.0:
                 print(self._border + " " + (f"{label}[{index_str}] = {value_str}").ljust(self.width - 4) + " " + self._border)

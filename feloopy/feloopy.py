@@ -1828,7 +1828,9 @@ class model(
                         if type(self.features['dimensions'][j])==set:
                             for k in self.features['dimensions'][j]:
                                 if self.get(self.features['variables'][(i,j)][k]) not in [0, None]:
-                                    print(f"│ {j}[{k}] =".replace("(", "").replace(")", ""), self.get(self.features['variables'][(i,j)][k]), " "* (box_width-(len(f"│ {j}[{k}] =".replace("(", "").replace(")", "")) + len(str(self.get(self.features['variables'][(i,j)][k])))) - 1) + "│")   
+                                    if "[" in str(k): index = k
+                                    else: index = f"[{k}]"
+                                    print(f"│ {j}{index} =".replace("(", "").replace(")", ""), self.get(self.features['variables'][(i,j)][k]), " "* (box_width-(len(f"│ {j}[{k}] =".replace("(", "").replace(")", "")) + len(str(self.get(self.features['variables'][(i,j)][k])))) - 1) + "│")   
                         else:  
                             try:
                                 for k in fix_dims(self.features['dimensions'][j])[0]:
@@ -1842,7 +1844,9 @@ class model(
                         if type(self.features['dimensions'][j])==set:
                             for k in self.features['dimensions'][j]:
                                 if self.get(self.features['variables'][(i,j)][k]) not in [0, None]:
-                                    print(f"│ {j}[{k}] =".replace("(", "").replace(")", ""), self.get(self.features['variables'][(i,j)][k]), " "* (box_width-(len(f"│ {j}[{k}] =".replace("(", "").replace(")", "")) + len(str(self.get(self.features['variables'][(i,j)][k])))) - 1) + "│")                      
+                                    if "[" in str(k): index = k
+                                    else: index = f"[{k}]"
+                                    print(f"│ {j}{index} =".replace("(", "").replace(")", ""), self.get(self.features['variables'][(i,j)][k]), " "* (box_width-(len(f"│ {j}[{k}] =".replace("(", "").replace(")", "")) + len(str(self.get(self.features['variables'][(i,j)][k])))) - 1) + "│")                      
                         else:
                             try:
                                 for k in it.product(*tuple(fix_dims(self.features['dimensions'][j]))):
