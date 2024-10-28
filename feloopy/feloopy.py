@@ -4967,7 +4967,6 @@ class MADM:
 
 madm = MADM
 
-
 class search(model,Implement):
 
     def __init__(
@@ -5056,7 +5055,7 @@ class search(model,Implement):
         
         if len(self.key_params)!=0:
             self.sensitivity(dataset, key_params, scenarios, environment,control_scenario)
-            
+
         if report:
             self.report()
 
@@ -5231,7 +5230,6 @@ class search(model,Implement):
 
                         self.stagnation = np.sum(np.array(self.ub_for_max) - np.array(self.best_max) <= 1e-6) / self.options["epoch"]
                 
-
         else:   
             if self.method in ["exact", "convex", "constraint", "uncertain"]:
                 
@@ -5275,7 +5273,6 @@ class search(model,Implement):
                     self.std      = [[0] * (self.options["epoch"] - 1)]*self.number_of_objectives
                     self.lb_for_min = [[0] * (self.options["epoch"] - 1)]*self.number_of_objectives
                     self.ub_for_max  = [[0] * (self.options["epoch"] - 1)]*self.number_of_objectives
-
 
                     for i in range(1, self.options["epoch"]):
 
@@ -5647,7 +5644,7 @@ class search(model,Implement):
         import psutil
         import cpuinfo
         import GPUtil
-    
+
         def get_system_characteristics():
             os_info = platform.system()
             ram_info = np.round(psutil.virtual_memory().total / (1024.0 ** 3))
@@ -5662,7 +5659,7 @@ class search(model,Implement):
         box.clear_columns(list_of_strings=["",f"{pconfigurated}"], label= f"Type: {ptype}", max_space_between_elements=4)
         
         box.empty()
-                
+
         if skip_system_information is False:
             try: 
                 box.bottom(right=get_system_characteristics())
@@ -5674,8 +5671,9 @@ class search(model,Implement):
         
         # Second box: Model
         if self.method!='madm':
+
             box.top(left="Model")
-            
+
             values = [
                 format_string(self.em.features.get("binary_variable_counter",[0,0])[0],ensure_length=True), 
                 format_string(self.em.features.get("integer_variable_counter",[0,0])[0],ensure_length=True), 
@@ -5701,10 +5699,9 @@ class search(model,Implement):
                 format_string(self.em.features.get("objective_counter",[0,0])[1],ensure_length=True), 
                 format_string(self.em.features.get("constraint_counter",[0,0])[1],ensure_length=True),
                 ]
-        
+
             box.clear_columns(list_of_strings=values, label=f"Size ", max_space_between_elements=4)
             box.bottom()
-
 
         # Mathematical Model
         if full:
@@ -5937,9 +5934,8 @@ class search(model,Implement):
                             for obj_id in range(self.number_of_objectives):
                                 box.print_tensor(f"Ave. Obj. {obj_id}",np.mean(self.sensitivity_data[f"sensitivtiy_of_objectives_to_{parameter_name}"][j][:,obj_id]))
                     
-
                     box.empty()
-                
+            
             seconds_value = self.sensitivity_end_timer - self.sensitivity_begin_timer
             microseconds_value = seconds_value * 1e6
             microseconds_scientific_notation = "{:.2e}".format(microseconds_value)
@@ -5948,7 +5944,6 @@ class search(model,Implement):
             seconds = int((microseconds_value % 60e6) / 1e6)
             time_formatted = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
                         
-        
             box.bottom(right=f"{time_formatted} h:m:s" + f" {microseconds_scientific_notation} μs")
     
             print()
