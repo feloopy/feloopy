@@ -19,7 +19,7 @@ except:
 
 class DataToolkit(FileManager):
 
-    def __init__(self, key=None, memorize=True):
+    def __init__(self, key=None, memorize=True, measure=True):
         
         self.data = dict()
         self.seed= key
@@ -28,6 +28,8 @@ class DataToolkit(FileManager):
         self.memorize=memorize
         self.gaussian = self.normal
         self.store = self.par = self.__keep
+        self.measure = measure
+        self.size = 0
 
     def sets(self,*args):
         return it.product(*args)
@@ -42,8 +44,35 @@ class DataToolkit(FileManager):
                 else:
                     dim = [len(d) if not isinstance(d, int) else d for d in dim]
         return dim
-    
+
+    def __calculate_total_size(self, data):
+        """
+        Recursively calculates the total size of elements in the given data structure.
+        """
+        if isinstance(data, (list, tuple)):
+            return sum(self.__calculate_total_size(item) for item in data)
+        elif isinstance(data,set):
+            return 0
+        elif isinstance(data, dict):
+            return sum(self.__calculate_total_size(key) + self.__calculate_total_size(value) for key, value in data.items())
+        elif isinstance(data, np.ndarray):
+            return data.size
+        elif isinstance(data, pd.DataFrame):
+            return data.size
+        elif isinstance(data, pd.Series):
+            return data.size
+        elif hasattr(data, '__len__') and not isinstance(data, (str, bytes)):
+            return sum(self.__calculate_total_size(item) for item in data)
+        else:
+            return 1
+        
     def __keep(self, name, value, neglect=False):
+        if self.measure == True:
+            try:
+                self.size+=self.__calculate_total_size(value)
+            except:
+                print("warning: exception for {name} in size calculation. Ignoring real size.")
+                self.size+=1
         if self.memorize and neglect==False:
             self.data[name]=value
             return self.data[name]
@@ -248,7 +277,6 @@ class DataToolkit(FileManager):
             if sort_result:
                 result.sort()
 
-        self.data[name] = result
         return result
 
     def _sample_pandas_dataframe(self, name, init, size, replace=False, sort_result=False, return_indices=False, axis=None):
@@ -260,7 +288,7 @@ class DataToolkit(FileManager):
         sampled_indices = self.random.choice(init.shape[axis], size=size, replace=replace)
 
         if return_indices:
-            self.data[name] = sampled_indices
+            sampled_data = sampled_indices
         else:
             if axis == 0:
                 sampled_data = init.iloc[sampled_indices, :]
@@ -269,10 +297,8 @@ class DataToolkit(FileManager):
 
             if sort_result:
                 sampled_data = sampled_data.sort_index(axis=axis)
-
-            self.data[name] = sampled_data
-
-        return self.data[name]
+                
+        return sampled_data
 
     def zeros(self, name, dim=0, neglect=False):
         dim = self.__fix_dims(dim,is_range=False)
@@ -583,14 +609,6 @@ class DataToolkit(FileManager):
                     result = {key: '#{:06x}'.format(self.random.integers(0, 0xFFFFFF)) for key in it.product(*dim)}
         return self.__keep(name, result, neglect)
     
-    def start_epoch_min(self):
-        self.data["epoch_min"] = []
-
-    def store_epoch_min(self, current_obj):
-        self.data[name] = [value]
-
-
-
     def sample(self, name, init, size, replace=False, sort_result=False, reset_index=False, return_indices=False, axis=None, neglect=False):
 
         type_is= type(init)
@@ -607,16 +625,16 @@ class DataToolkit(FileManager):
         if reset_index:
             sample = sample.reset_index(drop=True)
 
-        self.__keep(name, sample, neglect)
-        
         if type_is ==set:
-            return set(sample)
+            sample =  set(sample)
         elif type_is in [list, range]:
-            return list(sample)
+            sample = list(sample)
         elif return_indices:
-            return set(sample)
+            sample =  set(sample)
         else:
-            return sample
+            sample =  sample
+
+        return self.__keep(name, sample, neglect)
 
     def set_local_parameters(self):
 
@@ -732,4 +750,4 @@ class DataToolkit(FileManager):
         return self.__keep(name, data, neglect)
 
 
-data_toolkit = data_utils = data_manager = DataToolkit
+data_toolkit = DataToolkit

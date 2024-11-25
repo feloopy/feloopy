@@ -20,6 +20,8 @@ from .algorithms import *
 from .classes import *
 from .helpers import *
 from .operators import *
+from .visualizers import *
+
 
 __author__ = ['Keivan Tafakkori']
 
@@ -850,8 +852,8 @@ class model(
             self.features.update(
                 {
                 'model_object': self.model,
-                'variables': defaultdict(),
-                'dimensions': defaultdict(),
+                'variables': {},
+                'dimensions': {},
                 }
             )
             
@@ -5046,6 +5048,10 @@ class search(model,Implement):
         end = timeit.default_timer()
         self.mgt+=end-start
 
+        self.dataset_size = None
+        if type(self.inputdata)!=dict:
+            self.dataset_size = self.inputdata.size
+
         if self.should_run:
 
             if self.should_benchmark: 
@@ -5772,6 +5778,17 @@ class search(model,Implement):
 
             box.top(left="Metric",center=format_time_and_microseconds(self.mgt, name='MGT: '),right=format_time_and_microseconds(self.cpt, name='CPT: '))
             box.empty()
+    
+            if self.dataset_size:
+                try:
+                    
+
+                    box.row(left="Data Support Ratio", right=format_string(self.dataset_size/self.em.features.get("total_variable_counter",[0,0])[1],ensure_length=True))
+
+                    box.empty()
+                except:
+                    pass
+                            
             if self.number_of_objectives==1:
                 def show(i):
                     return "Objective"

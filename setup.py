@@ -114,6 +114,13 @@ only_linux = [
 
 mega = hyper + only_cylp + only_linux
 
+canvas = [
+    "IPython",
+    "gif",
+    "folium",
+
+]
+
 extra_dict = {
     'pico': pico,
     'nano': nano,
