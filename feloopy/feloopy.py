@@ -5049,11 +5049,11 @@ class search(model,Implement):
         self.mgt+=end-start
 
         self.dataset_size = None
-        if type(self.inputdata)!=dict:
-            self.dataset_size = self.inputdata.size
+        if self.inputdata:
+            if type(self.inputdata)!=dict:
+                self.dataset_size = self.inputdata.size
 
         if self.should_run:
-
             if self.should_benchmark: 
                 self.benchmark_results = self.benchmark(algorithms=benchmark, repeat=self.repeat)
             
