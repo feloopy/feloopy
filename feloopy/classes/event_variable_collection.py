@@ -4,7 +4,7 @@ EventVariableCollection Module
 This module defines a class, `EventVariableCollectionClass`, that provides methods to create collections of event (interval) variables with specific names and indices.
 These variables represent events with characteristics such as size, start, and end, and are useful in constraint programming.
 
-Copyright (c) 2022-2024, Keivan Tafakkori. All rights reserved.
+Copyright (c) 2022-2025, Keivan Tafakkori. All rights reserved.
 See the file LICENSE file for licensing details.
 """
 

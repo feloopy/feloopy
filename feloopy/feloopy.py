@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2024, Keivan Tafakkori. All rights reserved.
+# Copyright (c) 2022-2025, Keivan Tafakkori. All rights reserved.
 # See the file LICENSE file for licensing details.
 
 import importlib
@@ -5619,7 +5619,7 @@ class search(model,Implement):
         formatted_date = current_datetime.strftime("%Y-%m-%d")
         formatted_time = current_datetime.strftime("%H:%M:%S")
     
-        box.top(left="FelooPy v0.3.6", right="Released October 2024")
+        box.top(left="FelooPy v0.3.6", right="Released October 2025")
         box.empty()
         
         box.clear_columns(list_of_strings=["", f"Interface: {self.interface}"], label=f"Date: {formatted_date}", max_space_between_elements=4)

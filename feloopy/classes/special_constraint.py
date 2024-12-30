@@ -3,7 +3,7 @@ SpecialConstraint Module
 
 This module defines a class, `SpecialConstraintClass`, that facilitates the creation of special constraints with an explainable logic.
 
-Copyright (c) 2022-2024, Keivan Tafakkori. All rights reserved.
+Copyright (c) 2022-2025, Keivan Tafakkori. All rights reserved.
 See the file LICENSE file for licensing details.
 """
 

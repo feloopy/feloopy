@@ -3,7 +3,7 @@ Linearization Module
 
 This module defines a class, `LinearizationClass`, that facilitates the linearization of mathematical models.
 
-Copyright (c) 2022-2024, Keivan Tafakkori. All rights reserved.
+Copyright (c) 2022-2025, Keivan Tafakkori. All rights reserved.
 See the file LICENSE file for licensing details.
 """
 

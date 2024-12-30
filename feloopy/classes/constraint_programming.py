@@ -3,7 +3,7 @@ ConstraintProgramming Module
 
 This module defines a class, `ConstraintProgrammingClass`, that is used in constraint programming.
 
-Copyright (c) 2022-2024, Keivan Tafakkori. All rights reserved.
+Copyright (c) 2022-2025, Keivan Tafakkori. All rights reserved.
 See the file LICENSE file for licensing details.
 """
 

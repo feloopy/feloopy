@@ -5,7 +5,7 @@ authors:
   - family-names: "Tafakkori"
     given-names: "Keivan"
 version: "0.3.6"
-date-released: 2024-04-01
+date-released: 2025-04-01
 repository-code: "https://github.com/feloopy/feloopy/"
 preferred-citation:
   type: software
@@ -15,7 +15,7 @@ preferred-citation:
   title: "FelooPy: Efficient and feature-rich integrated decision environment"
   version: "0.3.6"
   month: 4
-  year: 2024
+  year: 2025
   publisher: "GitHub"
   url: "https://github.com/feloopy/feloopy/"
 license: "MIT"

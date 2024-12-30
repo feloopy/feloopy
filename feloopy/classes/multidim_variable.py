@@ -3,7 +3,7 @@ Multi-dimensional variables module
 
 This module facilitates the creation of various types of multi-dimensional variables.
 
-Copyright (c) 2022-2024, Keivan Tafakkori. All rights reserved.
+Copyright (c) 2022-2025, Keivan Tafakkori. All rights reserved.
 See the file LICENSE file for licensing details.
 """
 
