@@ -27,9 +27,17 @@ class DataToolkit(FileManager):
         self.lfe = self.load_from_excel
         self.memorize=memorize
         self.gaussian = self.normal
-        self.store = self.par = self.__keep
+        self.store = self.param =self.par = self.__keep
         self.measure = measure
         self.size = 0
+        self.max_among_all_params = float('-inf')
+        self.min_among_all_params = float('+inf')
+        self.minimum_params = {}
+        self.maximum_params = {}
+        self.average_params = {}
+        self.possible_epsilon = 1e-16
+        self.possible_big_m = 1e16
+        self.std_params = {}
 
     def sets(self,*args):
         return it.product(*args)
@@ -65,9 +73,56 @@ class DataToolkit(FileManager):
             return sum(self.__calculate_total_size(item) for item in data)
         else:
             return 1
-        
+
+    def __calculate_stats(self, data):
+        """
+        Recursively calculates the minimum, maximum, average, and standard deviation 
+        among elements in the given data structure.
+        """
+        def flatten(data):
+            """ Flattens nested structures into a single list of numeric values. """
+            if isinstance(data, (list, tuple)):
+                for item in data:
+                    yield from flatten(item)
+            elif isinstance(data, set):
+                return
+            elif isinstance(data, dict):
+                for key, value in data.items():
+                    yield from flatten(key)
+                    yield from flatten(value)
+            elif isinstance(data, np.ndarray):
+                yield from data.flatten()
+            elif isinstance(data, pd.DataFrame):
+                yield from data.values.flatten()
+            elif isinstance(data, pd.Series):
+                yield from data.values
+            elif hasattr(data, '__iter__') and not isinstance(data, (str, bytes)):
+                for item in data:
+                    yield from flatten(item)
+            elif isinstance(data, (int, float)):
+                yield data
+
+        values = list(flatten(data))
+        if not values:
+            return float('inf'), float('-inf'), float('nan'), float('nan')
+
+        min_val = min(values)
+        max_val = max(values)
+        avg_val = sum(values) / len(values)
+        std_val = (sum((x - avg_val) ** 2 for x in values) / len(values)) ** 0.5
+
+        return min_val, max_val, avg_val, std_val
+
     def __keep(self, name, value, neglect=False):
         if self.measure == True:
+            self.minimum_params[name],self.maximum_params[name],self.average_params[name],self.std_params[name] = self.__calculate_stats(value)
+            self.max_among_all_params = max(self.maximum_params[name],self.max_among_all_params)
+            self.min_among_all_params = min(self.minimum_params[name],self.min_among_all_params)
+            try:
+                self.possible_epsilon  = 1/self.max_among_all_params
+            except:
+                pass
+            self.possible_big_m = self.max_among_all_params
             try:
                 self.size+=self.__calculate_total_size(value)
             except:

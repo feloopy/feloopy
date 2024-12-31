@@ -48,7 +48,7 @@ mini = micro + [
 ]
 
 full = mini + [
-    'pydecision==4.5.4',
+    'pydecision==4.5.8',
     'pymoo==0.6.1.1',
     'rsome==1.2.6',
 ]

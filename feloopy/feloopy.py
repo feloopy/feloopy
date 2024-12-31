@@ -1582,7 +1582,7 @@ class model(
             now = datetime.datetime.now()
             date_str = now.strftime("Date: %Y-%m-%d")
             time_str = now.strftime("Time: %H:%M:%S")
-            tline_text("FelooPy v0.3.6")
+            tline_text("FelooPy v0.3.7")
             empty_line()
             two_column(date_str, time_str)
             two_column(f"Interface: {self.interface_name}", f"Solver: {self.solver_name}")
@@ -3782,7 +3782,7 @@ class Implement:
             now = datetime.datetime.now()
             date_str = now.strftime("Date: %Y-%m-%d")
             time_str = now.strftime("Time: %H:%M:%S")
-            tline_text("FelooPy v0.3.6")
+            tline_text("FelooPy v0.3.7")
             empty_line()
             two_column(date_str, time_str)
             two_column(f"Interface: {self.interface_name}", f"Solver: {self.solver_name}")
@@ -4891,7 +4891,7 @@ class MADM:
         date_str = now.strftime("Date: %Y-%m-%d")
         time_str = now.strftime("Time: %H:%M:%S")
 
-        tline_text("FelooPy v0.3.6")
+        tline_text("FelooPy v0.3.7")
         empty_line()
         two_column(date_str, time_str)
 
@@ -5052,6 +5052,8 @@ class search(model,Implement):
         if self.inputdata:
             if type(self.inputdata)!=dict:
                 self.dataset_size = self.inputdata.size
+                self.big_m_value = self.inputdata.possible_big_m
+                self.epsilon_value = self.inputdata.possible_epsilon
 
         if self.should_run:
             if self.should_benchmark: 
@@ -5534,6 +5536,33 @@ class search(model,Implement):
 
             return self.sensitivity_data
 
+    def is_value_unreliable(self,data, bounds, features, vartype):
+        categories = {vartype: []}
+        for key, value in features['variables']:
+            if key in categories:
+                categories[key].append(value)
+        if vartype=="bvar":
+            if isinstance(data, dict):
+                return any(self.epsilon_value <= v <= 1 - self.epsilon_value for k, v in data.items() if k in categories[vartype])
+            if isinstance(data, list):
+                return any(self.epsilon_value <= v <= 1 - self.epsilon_value for d in data for k,v in d.items() if k in categories[vartype])
+        else:
+            if isinstance(data, dict):
+                return any(v >= bounds[1]+self.epsilon_value and v <= bounds[0]-self.epsilon_value for k,v in data.items() if k in categories[vartype])
+            if isinstance(data, list):
+                return any(v >= bounds[1]+self.epsilon_value and v <= bounds[0]-self.epsilon_value for d in data for k,v in d.items() if k in categories[vartype])
+
+    def is_value_impresice(self,data, bounds, features, vartype):
+        categories = {vartype: []}
+        for key, value in features['variables']:
+            if key in categories:
+                categories[key].append(value)
+        if vartype=="bvar":
+            if isinstance(data, dict):
+                return any(v not in [0,1] for k, v in data.items() if k in categories[vartype])
+            if isinstance(data, list):
+                return any(v not in [0,1] for d in data for k,v in d.items() if k in categories[vartype])
+
     def benchmark(self, environment=None, algorithms=None, repeat=1, show_report=False):
 
         if environment is None:
@@ -5604,8 +5633,30 @@ class search(model,Implement):
         init(autoreset=True)
 
         phealthy = "Unknown"
+
         if self.em.healthy() or self.method=="madm" or self.sensitivity_analyzed or (self.number_of_objectives!=1 and len(self.solutions)!=0):
             phealthy = f"{Fore.GREEN}{'√ Healthy'}"
+        
+            if self.inputdata:
+                if type(self.inputdata)!=dict:
+                    self.dataset_size = self.inputdata.size
+                    self.big_m_value   = self.inputdata.possible_big_m
+                    self.epsilon_value = self.inputdata.possible_epsilon            
+                    bvar_ok = self.is_value_unreliable(self.solutions, [0,1], self.em.features, "bvar")
+                    ivar_ok = self.is_value_unreliable(self.solutions, [0,1], self.em.features, "ivar")
+                    pvar_ok = self.is_value_unreliable(self.solutions, [0,1], self.em.features, "pvar")
+                    fvar_ok = self.is_value_unreliable(self.solutions, [0,1], self.em.features, "fvar")
+                    if not bvar_ok or not ivar_ok or not pvar_ok or not fvar_ok:
+                        pass
+                    else:    
+                        phealthy+=f"{Fore.ORANGE}{'X Unreliable'}"
+                    bvar_ok = self.is_value_impresice(self.solutions, [0,1], self.em.features, "bvar")
+                    if not bvar_ok:
+                        pass
+                    else:    
+                        phealthy+="\n"+f"{Fore.YELLOW}{'X Imprecise'}"                
+
+        
         else:
             phealthy = f"{Fore.RED}{'X Unhealthy'}"
 
@@ -5619,7 +5670,7 @@ class search(model,Implement):
         formatted_date = current_datetime.strftime("%Y-%m-%d")
         formatted_time = current_datetime.strftime("%H:%M:%S")
     
-        box.top(left="FelooPy v0.3.6", right="Released October 2025")
+        box.top(left="FelooPy v0.3.7", right="Released January 2025")
         box.empty()
         
         box.clear_columns(list_of_strings=["", f"Interface: {self.interface}"], label=f"Date: {formatted_date}", max_space_between_elements=4)
@@ -5818,6 +5869,22 @@ class search(model,Implement):
             box.empty()
             box.bottom()
             
+            if self.inputdata:
+                if type(self.inputdata)!=dict:
+                    print()
+                    box.top(left="Data")
+                    box.empty()
+                    box.row(left='', right=' '.join(j for j in ["min    ", "max    ", "ave    ", "std    "]))
+                    try:
+                        for name in self.inputdata.data.keys():
+                            box.row(left=name, right=' '.join(format_string(j,ensure_length=True) for j in [self.inputdata.minimum_params[name],self.inputdata.maximum_params[name],self.inputdata.average_params[name],self.inputdata.std_params[name]]))
+
+                    except:
+                        pass
+
+                    box.empty()
+                    box.bottom()
+
             # Fourth box: Decisions
             print()
             box.top(left="Decision")
