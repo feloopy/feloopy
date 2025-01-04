@@ -345,17 +345,27 @@ def left_align(input, box_width=88, rt=False):
         
 def format_string(input, length=8, ensure_length=False):
 
+    if isinstance(input, str):
+        return input
+    
     if input is None:
         formatted_str = "None"
+    
     elif isinstance(input, int):
         if abs(input) <= 10000:
             formatted_str = f"{input:.0f}"
         else:
             formatted_str = f"{input:.2e}"
+    
     elif isinstance(input, float):
-        formatted_str = f"{input:.2f}"
+        if abs(input) <= 10000:
+            formatted_str = f"{input:.2f}"
+        else:
+            formatted_str = f"{input:.2e}"
+
     elif isinstance(input, dict):
         formatted_str = ', '.join(f"{k}: {format_string(v, length, ensure_length)}" for k, v in input.items())
+
     else:
         formatted_str = str(input)
     

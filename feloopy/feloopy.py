@@ -1246,15 +1246,13 @@ class model(
                                 
                                 self.features['objectives'] = np.array(self.features['objectives']).T
 
-                                term =  self.features['objectives'][:,i]
-
                                 for i in range(self.features['objective_counter'][0]):
 
                                     if directions[i] == 'max':
-                                        self.agent[:, -2-total_obj+i] = term - self.features['penalty_coefficient'] * (self.penalty)**2
+                                        self.agent[:, -2-total_obj+i] = self.features['objectives'][:,i] - self.features['penalty_coefficient'] * (self.penalty)**2
 
                                     if directions[i] == 'min':
-                                        self.agent[:, -2-total_obj+i] = term + self.features['penalty_coefficient'] * (self.penalty)**2
+                                        self.agent[:, -2-total_obj+i] = self.features['objectives'][:,i] + self.features['penalty_coefficient'] * (self.penalty)**2
 
                                 self.current_min = np.min(self.agent[:, -2-total_obj:-2], axis = 0)
                                 self.current_max = np.max(self.agent[:, -2-total_obj:-2], axis = 0)
@@ -1293,7 +1291,6 @@ class model(
 
                                 self.sing_result = []
                                 
-
                                 for i in range(self.features['objective_counter'][0]):
 
                                     if directions[i] == 'max':
@@ -5546,11 +5543,24 @@ class search(model,Implement):
                 return any(self.epsilon_value <= v <= 1 - self.epsilon_value for k, v in data.items() if k in categories[vartype])
             if isinstance(data, list):
                 return any(self.epsilon_value <= v <= 1 - self.epsilon_value for d in data for k,v in d.items() if k in categories[vartype])
-        else:
+        
+        if vartype=="ivar":
             if isinstance(data, dict):
-                return any(v >= bounds[1]+self.epsilon_value and v <= bounds[0]-self.epsilon_value for k,v in data.items() if k in categories[vartype])
+                return any(v >= bounds[1] or v < bounds[0] for k,v in data.items() if k in categories[vartype])
             if isinstance(data, list):
-                return any(v >= bounds[1]+self.epsilon_value and v <= bounds[0]-self.epsilon_value for d in data for k,v in d.items() if k in categories[vartype])
+                return any(v >= bounds[1] or v < bounds[0] for d in data for k,v in d.items() if k in categories[vartype])
+            
+        if vartype=="pvar":
+            if isinstance(data, dict):
+                return any(v >= bounds[1] or v < bounds[0] for k,v in data.items() if k in categories[vartype])
+            if isinstance(data, list):
+                return any(v >= bounds[1] or v < bounds[0] for d in data for k,v in d.items() if k in categories[vartype])
+        
+        if vartype=="fvar":
+            if isinstance(data, dict):
+                return any(v >= bounds[1] or v <= bounds[0] for k,v in data.items() if k in categories[vartype])
+            if isinstance(data, list):
+                return any(v >= bounds[1] or v <= bounds[0] for d in data for k,v in d.items() if k in categories[vartype])
 
     def is_value_impresice(self,data, bounds, features, vartype):
         categories = {vartype: []}
@@ -5644,12 +5654,13 @@ class search(model,Implement):
                     self.epsilon_value = self.inputdata.possible_epsilon            
                     bvar_ok = self.is_value_unreliable(self.solutions, [0,1], self.em.features, "bvar")
                     ivar_ok = self.is_value_unreliable(self.solutions, [0,1], self.em.features, "ivar")
-                    pvar_ok = self.is_value_unreliable(self.solutions, [0,1], self.em.features, "pvar")
-                    fvar_ok = self.is_value_unreliable(self.solutions, [0,1], self.em.features, "fvar")
-                    if not bvar_ok or not ivar_ok or not pvar_ok or not fvar_ok:
+                    pvar_ok = self.is_value_unreliable(self.solutions, [0,self.big_m_value], self.em.features, "pvar")
+                    fvar_ok = self.is_value_unreliable(self.solutions, [-self.big_m_value,self.big_m_value], self.em.features, "fvar")
+                    #print(bvar_ok, ivar_ok, pvar_ok, fvar_ok)
+                    if bvar_ok or ivar_ok or pvar_ok or fvar_ok:
+                        phealthy+="\n"+f"{Fore.MAGENTA}{'X Unreliable'}"
+                    else:
                         pass
-                    else:    
-                        phealthy+=f"{Fore.ORANGE}{'X Unreliable'}"
                     bvar_ok = self.is_value_impresice(self.solutions, [0,1], self.em.features, "bvar")
                     if not bvar_ok:
                         pass
@@ -5832,10 +5843,7 @@ class search(model,Implement):
     
             if self.dataset_size:
                 try:
-                    
-
                     box.row(left="Data Support Ratio", right=format_string(self.dataset_size/self.em.features.get("total_variable_counter",[0,0])[1],ensure_length=True))
-
                     box.empty()
                 except:
                     pass
@@ -5873,16 +5881,14 @@ class search(model,Implement):
                 if type(self.inputdata)!=dict:
                     print()
                     box.top(left="Data")
-                    box.empty()
-                    box.row(left='', right=' '.join(j for j in ["min    ", "max    ", "ave    ", "std    "]))
+                    box.row(left='', right=' '.join(j for j in ["Range    ", "Size    ", "Min     ", "Max     ", "Ave     ", "Std     "]))
+                    box.middle()
                     try:
                         for name in self.inputdata.data.keys():
-                            box.row(left=name, right=' '.join(format_string(j,ensure_length=True) for j in [self.inputdata.minimum_params[name],self.inputdata.maximum_params[name],self.inputdata.average_params[name],self.inputdata.std_params[name]]))
+                            box.row(left=name, right=' '.join(format_string(j,ensure_length=True) for j in [self.inputdata.type_params[name], self.inputdata.size_params[name], self.inputdata.minimum_params[name],self.inputdata.maximum_params[name],self.inputdata.average_params[name],self.inputdata.std_params[name]]))
 
                     except:
                         pass
-
-                    box.empty()
                     box.bottom()
 
             # Fourth box: Decisions

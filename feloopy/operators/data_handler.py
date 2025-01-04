@@ -35,6 +35,8 @@ class DataToolkit(FileManager):
         self.minimum_params = {}
         self.maximum_params = {}
         self.average_params = {}
+        self.size_params = {}
+        self.type_params = {}
         self.possible_epsilon = 1e-16
         self.possible_big_m = 1e16
         self.std_params = {}
@@ -54,9 +56,6 @@ class DataToolkit(FileManager):
         return dim
 
     def __calculate_total_size(self, data):
-        """
-        Recursively calculates the total size of elements in the given data structure.
-        """
         if isinstance(data, (list, tuple)):
             return sum(self.__calculate_total_size(item) for item in data)
         elif isinstance(data,set):
@@ -75,49 +74,82 @@ class DataToolkit(FileManager):
             return 1
 
     def __calculate_stats(self, data):
-        """
-        Recursively calculates the minimum, maximum, average, and standard deviation 
-        among elements in the given data structure.
-        """
         def flatten(data):
-            """ Flattens nested structures into a single list of numeric values. """
             if isinstance(data, (list, tuple)):
                 for item in data:
                     yield from flatten(item)
             elif isinstance(data, set):
-                return
+                for item in data:
+                    yield from flatten(item)
             elif isinstance(data, dict):
                 for key, value in data.items():
                     yield from flatten(key)
                     yield from flatten(value)
-            elif isinstance(data, np.ndarray):
-                yield from data.flatten()
-            elif isinstance(data, pd.DataFrame):
-                yield from data.values.flatten()
-            elif isinstance(data, pd.Series):
-                yield from data.values
+            elif isinstance(data, (np.ndarray, pd.Series, pd.DataFrame)):
+                yield from pd.DataFrame(data).values.flatten() 
             elif hasattr(data, '__iter__') and not isinstance(data, (str, bytes)):
                 for item in data:
                     yield from flatten(item)
-            elif isinstance(data, (int, float)):
+            elif isinstance(data, (int, float, str, bytes, complex, bool)): 
                 yield data
 
         values = list(flatten(data))
+
         if not values:
             return float('inf'), float('-inf'), float('nan'), float('nan')
 
-        min_val = min(values)
-        max_val = max(values)
-        avg_val = sum(values) / len(values)
-        std_val = (sum((x - avg_val) ** 2 for x in values) / len(values)) ** 0.5
+        if not all(isinstance(x, (int, float)) or isinstance(x, type(values[0])) for x in values):
+            return '-', len(values), None, None, None, None
 
-        return min_val, max_val, avg_val, std_val
+        type_checks = {
+            'ℝ': all(isinstance(x, (int, float)) for x in values) and any(x > 0 for x in values) and any(x < 0 for x in values), 
+            'ℝ⁺': all(isinstance(x, (int, float)) and x >= 0 for x in values) and any(x > 0 for x in values) and any(x > 1 for x in values),
+            'ℝ⁻': all(isinstance(x, (int, float)) and x <= 0 for x in values) and any(x < 0 for x in values) and any(x < -1 for x in values), 
+            'ℤ': all(isinstance(x, int) for x in values) and any(x > 0 for x in values) and any(x < 0 for x in values),
+            'ℤ⁺': all(isinstance(x, int) and x >= 0 for x in values) and any(x > 0 for x in values), 
+            'ℕ': all(isinstance(x, int) and x > 0 for x in values),
+            'ℤ₀': all(isinstance(x, int) and x == 0 for x in values), 
+            'ℤ⁻': all(isinstance(x, int) and x < 0 for x in values),  
+            '𝔹': all(isinstance(x, int) and x in [0, 1] for x in values) and any(x == 1 for x in values),  
+            'ℝ⁺ ∩ [0, 1]': all(isinstance(x, (int,float)) and 0 <= x <= 1 for x in values) and any(0 < x < 1 for x in values), 
+            'ℝ⁻ ∩ [-1, 0]': all(isinstance(x, (int,float)) and -1 <= x <= 0 for x in values) and any(-1 < x < 0 for x in values),  
+            'Σ': all(isinstance(x, str) for x in values), 
+            'B': all(isinstance(x, bytes) for x in values), 
+            'ℂ': all(isinstance(x, complex) for x in values), 
+            '∅': all(x is None for x in values), 
+            '-': not all(isinstance(x, (int, float,str,bytes,complex)) for x in values), 
+        }
+
+        identified_types = [name for name, check in type_checks.items() if check]
+        data_type = '/'.join([t.strip() for t in identified_types]) if identified_types else 'Other'
+        data_type+="    "
+
+        if 'ℝ' in data_type or 'ℤ' in data_type: 
+            numeric_values = [x for x in values if isinstance(x, (int, float))]
+            if numeric_values:
+                min_value = min(numeric_values)
+                max_value = max(numeric_values)
+                mean_value = sum(numeric_values) / len(numeric_values)
+                std_deviation = (sum((x - mean_value) ** 2 for x in numeric_values) / len(numeric_values)) ** 0.5
+            else:
+                min_value = max_value = mean_value = std_deviation = "-       "
+        else:
+            numeric_values = [x for x in values if isinstance(x, (int, float))]
+            min_value = min(numeric_values) if numeric_values else "-       "
+            max_value = max(numeric_values) if numeric_values else "-       "
+            mean_value = std_deviation = "-       "
+
+        data_size = len(values)
+        return data_type, data_size, min_value, max_value, mean_value, std_deviation
 
     def __keep(self, name, value, neglect=False):
         if self.measure == True:
-            self.minimum_params[name],self.maximum_params[name],self.average_params[name],self.std_params[name] = self.__calculate_stats(value)
-            self.max_among_all_params = max(self.maximum_params[name],self.max_among_all_params)
-            self.min_among_all_params = min(self.minimum_params[name],self.min_among_all_params)
+            self.type_params[name], self.size_params[name], self.minimum_params[name],self.maximum_params[name],self.average_params[name],self.std_params[name] = self.__calculate_stats(value)
+            try:
+                self.max_among_all_params = max(self.maximum_params[name],self.max_among_all_params)
+                self.min_among_all_params = min(self.minimum_params[name],self.min_among_all_params)
+            except:
+                pass
             try:
                 self.possible_epsilon  = 1/self.max_among_all_params
             except:
@@ -136,7 +168,8 @@ class DataToolkit(FileManager):
         else:
             return value
     
-    ## Sets
+    # === Sets
+
     def _convert_to_set(self, input_set):
         if isinstance(input_set, set):
             return input_set
@@ -182,23 +215,18 @@ class DataToolkit(FileManager):
         raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
 
     def _json_decoder(self, dct):
-        # numpy arrays
         if "shape" in dct and "data" in dct:
             return np.array(dct["data"]).reshape(dct["shape"])
-        # pandas DataFrames
         elif "columns" in dct and "index" in dct and "data" in dct:
             return pd.DataFrame(data=dct["data"], index=dct["index"], columns=dct["columns"])
-        # pandas Series
         elif "index" in dct and "data" in dct:
             try:
                 return pd.Series(data=dct["data"], index=dct["index"])
             except Exception:
                 pass  
-        # sets
         elif isinstance(dct, dict) and "data" in dct:
             if "__type__" in dct and dct["__type__"] == "set":
                 return set(dct["data"])
-        # range
         elif "start" in dct and "stop" in dct and "step" in dct:
             return range(dct["start"], dct["stop"], dct["step"])
         return dct
@@ -305,7 +333,7 @@ class DataToolkit(FileManager):
         else:
             pprint(self.data, width=90, indent=0, sort_dicts=True)
     
-    ## Parameters
+    # === Parameters
 
     def _sample_list_or_array(self, name, init, size, replace=False, sort_result=False, return_indices=False, axis=None):
         
