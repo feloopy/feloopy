@@ -20,8 +20,6 @@ from .algorithms import *
 from .classes import *
 from .helpers import *
 from .operators import *
-from .visualizers import *
-
 
 __author__ = ['Keivan Tafakkori']
 
