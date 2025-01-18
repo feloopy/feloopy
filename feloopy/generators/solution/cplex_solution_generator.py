@@ -11,7 +11,6 @@ env = get_environment()
 
 cplex_solver_selector = {'cplex': 'cplex'}
 
-
 def generate_solution(features):
 
     model_object = features['model_object_before_solve']

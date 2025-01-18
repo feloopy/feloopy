@@ -11,6 +11,11 @@ def generate_model(features):
             from .model import pulp_model_generator
             model_object = pulp_model_generator.generate_model(features)
 
+        case 'casadi':
+
+            from .model import casadi_model_generator
+            model_object = casadi_model_generator.generate_model(features)
+            
         case 'pyomo':
 
             from .model import pyomo_model_generator

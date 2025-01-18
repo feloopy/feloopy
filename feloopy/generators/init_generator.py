@@ -18,6 +18,11 @@ def generate_init(features, variable, value, fix):
             from .init import pulp_init_generator
             model_object = pulp_init_generator.set_init_value(**data)
 
+        case 'casadi':
+            
+            from .init import casadi_init_generator
+            model_object = casadi_init_generator.set_init_value(**data)
+
         case 'pyomo':
 
             from .init import pyomo_init_generator

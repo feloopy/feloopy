@@ -18,6 +18,11 @@ def generate_variable(interface_name, model_object, variable_type, variable_name
             from .variable import pulp_variable_generator
             return pulp_variable_generator.generate_variable(**inputs)
 
+        case 'casadi':
+
+            from .variable import casadi_variable_generator
+            return casadi_variable_generator.generate_variable(**inputs)
+
         case 'pyomo':
 
             from .variable import pyomo_variable_generator

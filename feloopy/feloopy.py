@@ -326,6 +326,7 @@ HEURISTIC_ALGORITHMS = [
 EXACT_ALGORITHMS = [
 
     ['copt', 'copt'],
+    ['casadi', 'ipopt'],
     ['cplex', 'cplex'],
     ['cvxpy', 'cbc'],
     ['cvxpy', 'clarabel'],
@@ -732,7 +733,7 @@ class model(
         self,
         name: str = 'model_name',
         method: Literal['constraint', 'convex', 'exact', 'heuristic', 'uncertain'] = 'exact',
-        interface: Literal['copt','cplex','cplex_cp','cvxpy','cylp','feloopy','gekko','gurobi','linopy','mealpy','mip','niapy','ortools','ortools_cp','picos','pulp','pygad','pymoo','pymprog','pymultiobjective','pyomo','rsome_dro','rsome_ro','xpress','insideopt','insideopt-demo', 'gams','highs', 'jump', 'mathopt', 'pyoptinterface.highs', 'pyoptinterface.copt', 'pyoptinterface.mosek', 'pyoptinterface.gurobi'] = 'pulp',
+        interface: Literal['copt','cplex','cplex_cp','cvxpy','cylp','casadi','feloopy','gekko','gurobi','linopy','mealpy','mip','niapy','ortools','ortools_cp','picos','pulp','pygad','pymoo','pymprog','pymultiobjective','pyomo','rsome_dro','rsome_ro','xpress','insideopt','insideopt-demo', 'scipy' , 'gams','highs', 'jump', 'mathopt', 'pyoptinterface.highs', 'pyoptinterface.copt', 'pyoptinterface.mosek', 'pyoptinterface.gurobi'] = 'pulp',
         agent: Optional[Any] = None,
         no_scenarios: Optional[int] = None,
         no_agents: Optional[int] = None,
@@ -774,7 +775,7 @@ class model(
 
             validate_string(
                 label="interface", 
-                list_of_allowed_values=['copt','cplex','cplex_cp','cvxpy','cylp','feloopy','gekko','gurobi','linopy','mealpy','mip','niapy','ortools','ortools_cp','picos','pulp','pygad','pymoo','pymprog','pymultiobjective','pyomo','rsome_dro','rsome_ro','xpress','insideopt','insideopt-demo', 'gams','highs', 'jump', 'mathopt', 'pyoptinterface.highs', 'pyoptinterface.copt', 'pyoptinterface.mosek', 'pyoptinterface.gurobi'], 
+                list_of_allowed_values=['copt','cplex','cplex_cp','cvxpy','scipy','cylp','casadi','feloopy','gekko','gurobi','linopy','mealpy','mip','niapy','ortools','ortools_cp','picos','pulp','pygad','pymoo','pymprog','pymultiobjective','pyomo','rsome_dro','rsome_ro','xpress','insideopt','insideopt-demo', 'gams','highs', 'jump', 'mathopt', 'pyoptinterface.highs', 'pyoptinterface.copt', 'pyoptinterface.mosek', 'pyoptinterface.gurobi'], 
                 input_string=interface,
                 required=True)
             
@@ -1348,7 +1349,7 @@ class model(
     def healthy(self):
         try:
             status = self.get_status().lower()
-            return ('optimal' in status or 'feasible' in status) and 'infeasible' not in status
+            return ('optimal' in status or 'feasible' in status or 'succ' in status) and 'infeasible' not in status and 'unsucc' not in status
         except:
             try:
                 status = self.get_status()[0].lower()
@@ -2704,6 +2705,10 @@ class Implement:
                 self.ModelObject = niapy_model_generator.generate_model(
                     self.solver_name, self.AlgOptions)
 
+            case 'scipy':
+
+                self.ModelObject = None
+
             case 'pygad':
 
                 self.ModelObject = None
@@ -2746,6 +2751,11 @@ class Implement:
                 from .generators.solution import mealpy_solution_generator
                 self.BestAgent, self.BestReward, self.start, self.end = mealpy_solution_generator.generate_solution(
                     self.ModelObject, self.Fitness, self.tot_counter, self.objectives_directions, self.ObjectiveBeingOptimized, number_of_times, show_plots, save_plots,show_log, self.AlgOptions)
+
+            case 'scipy':
+
+                from .generators.solution import scipy_solution_generator
+                self.BestAgent, self.BestReward,self.start, self.end = scipy_solution_generator.generate_solution(self.solver_name, self.AlgOptions, self.Fitness, self.tot_counter, self.objectives_directions, self.ObjectiveBeingOptimized, number_of_times, show_plots, save_plots, show_log)
 
             case 'niapy':
 
@@ -2858,7 +2868,7 @@ class Implement:
 
         if len(self.objectives_directions)==1:
 
-            if self.interface_name in ['mealpy', 'niapy', 'pygad']:
+            if self.interface_name in ['mealpy', 'niapy', 'pygad', 'scipy']:
 
                 return self.Check_Fitness(self.BestAgent)
         
@@ -3335,7 +3345,7 @@ class Implement:
     def get(self, *args):
         if self.obj_counter[0] == 1:
             match self.interface_name:
-                case _ if self.interface_name in ['mealpy', 'niapy', 'pygad']:
+                case _ if self.interface_name in ['mealpy', 'niapy', 'pygad', 'scipy']:
                     for i in args:
                         if len(i) >= 2:
                             match self.VariablesType[i[0]]:
@@ -5166,7 +5176,7 @@ class search(model,Implement):
                 
                 if self.track_history:
 
-                    if self.interface in ['mealpy', 'niapy', 'pygad']: 
+                    if self.interface in ['mealpy', 'niapy', 'pygad', 'scipy']: 
 
                         self.best_max = [0] * (self.options["epoch"] - 1)
                         self.best_min = [0] * (self.options["epoch"] - 1)
@@ -5649,17 +5659,29 @@ class search(model,Implement):
                 if type(self.inputdata)!=dict:
                     self.dataset_size = self.inputdata.size
                     self.big_m_value   = self.inputdata.possible_big_m
-                    self.epsilon_value = self.inputdata.possible_epsilon            
-                    bvar_ok = self.is_value_unreliable(self.solutions, [0,1], self.em.features, "bvar")
-                    ivar_ok = self.is_value_unreliable(self.solutions, [0,1], self.em.features, "ivar")
-                    pvar_ok = self.is_value_unreliable(self.solutions, [0,self.big_m_value], self.em.features, "pvar")
-                    fvar_ok = self.is_value_unreliable(self.solutions, [-self.big_m_value,self.big_m_value], self.em.features, "fvar")
+                    self.epsilon_value = self.inputdata.possible_epsilon 
+                    if self.method in ["exact"]:
+
+                        bvar_ok = self.is_value_unreliable(self.solutions, [0,1], self.em.features, "bvar")
+                        ivar_ok = self.is_value_unreliable(self.solutions, [0,1], self.em.features, "ivar")
+                        pvar_ok = self.is_value_unreliable(self.solutions, [0,self.big_m_value], self.em.features, "pvar")
+                        fvar_ok = self.is_value_unreliable(self.solutions, [-self.big_m_value,self.big_m_value], self.em.features, "fvar")
+                    
+                    else:
+
+                        bvar_ok = ivar_ok = pvar_ok = fvar_ok = False
+                    
                     #print(bvar_ok, ivar_ok, pvar_ok, fvar_ok)
                     if bvar_ok or ivar_ok or pvar_ok or fvar_ok:
                         phealthy+="\n"+f"{Fore.MAGENTA}{'X Unreliable'}"
                     else:
                         pass
-                    bvar_ok = self.is_value_impresice(self.solutions, [0,1], self.em.features, "bvar")
+
+                    if self.method in ["exact"]:
+                        bvar_ok = self.is_value_impresice(self.solutions, [0,1], self.em.features, "bvar")
+                    else:
+                        bvar_ok = ivar_ok = pvar_ok = fvar_ok = False
+                    
                     if not bvar_ok:
                         pass
                     else:    
@@ -5879,7 +5901,7 @@ class search(model,Implement):
                 if type(self.inputdata)!=dict:
                     print()
                     box.top(left="Data")
-                    box.row(left='', right=' '.join(j for j in ["Range    ", "Size    ", "Min     ", "Max     ", "Ave     ", "Std     "]))
+                    box.row(left='', right=' '.join(j for j in ["Domain    ", "Size    ", "Min     ", "Max     ", "Ave     ", "Std     "]))
                     box.middle()
                     try:
                         for name in self.inputdata.data.keys():

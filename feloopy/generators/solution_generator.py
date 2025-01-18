@@ -11,6 +11,11 @@ def generate_solution(features):
             from .solution import pulp_solution_generator
             ModelSolution = pulp_solution_generator.generate_solution(features)
 
+        case 'casadi':
+
+            from .solution import casadi_solution_generator
+            ModelSolution = casadi_solution_generator.generate_solution(features)
+
         case 'pyomo':
 
             from .solution import pyomo_solution_generator

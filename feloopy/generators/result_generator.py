@@ -19,6 +19,11 @@ def get(input, model_object, model_solution, Thing, variable_name_with_index):
                 from .result import pulp_result_generator
                 return pulp_result_generator.Get(model_object, model_solution, indicator, variable_name_with_index)
 
+            case 'casadi':
+
+                from .result import casadi_result_generator
+                return casadi_result_generator.Get(model_object, model_solution, indicator, variable_name_with_index)
+
             case 'pyomo':
 
                 from .result import pyomo_result_generator
@@ -147,6 +152,11 @@ def get(input, model_object, model_solution, Thing, variable_name_with_index):
 
                 from .result import pulp_result_generator
                 return pulp_result_generator.Get(model_object, model_solution, indicator)
+
+            case 'casadi':
+
+                from .result import casadi_result_generator
+                return casadi_result_generator.Get(model_object, model_solution, indicator)
 
             case 'pyomo':
 

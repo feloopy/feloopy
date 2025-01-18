@@ -68,16 +68,18 @@ def run_setup_file():
  }
 
  for solver, (version, url) in versions.items():
-     url = url.format(version=version, version_no_dots=version.replace(".", ""))
-     output_folder = os.path.join("solvers", solver + "-windows")
-     if "zip" in url.lower():
+    url = url.format(version=version, version_no_dots=version.replace(".", ""))
+    output_folder = os.path.join("solvers", solver + "-windows")
+    if "zip" in url.lower():
         filename = os.path.join("solvers", solver + "-windows.zip")
-     if "tar" in url.lower():
+    if "tar" in url.lower():
         filename = os.path.join("solvers", solver + "-windows.tar.gz")
-     if "exe" in url.lower():
+    if "exe" in url.lower():
         filename = os.path.join("solvers", solver + "-windows.exe")
-     download_and_extract(url, output_folder, filename)
-
+    try:
+        download_and_extract(url, output_folder, filename)
+    except:
+        pass
 def create_optimization_project(project_name, directory=".", project_type=None):
 
    project_dir = os.path.join(directory, project_name)
