@@ -15,68 +15,60 @@ def cli_detect():
     detect_package_manager(verbose=True)
 
 def main():
-   parser = argparse.ArgumentParser(description="FelooPy's command-line tool")
-   subparsers = parser.add_subparsers(dest="command")
+    parser = argparse.ArgumentParser(description="FelooPy's command-line tool")
+    subparsers = parser.add_subparsers(dest="command", title="commands", description="Valid commands")
 
-   parser.add_argument("--version", action="store_true", help="Print the version of FelooPy")
-   parser.add_argument("-version", action="store_true", help="Print the version of FelooPy")
 
-   setup_parser = subparsers.add_parser("setup")
-   
-   project_parser = subparsers.add_parser("project")
-   project_parser.add_argument("--name", nargs='?', const=None, help="Name of the optimization project")
-   project_parser.add_argument('--type', nargs='?', const=None, help='Specify project type.')
+    parser.add_argument("--version", action="store_true", help="Print the version of FelooPy")
 
-   manager1_parser = subparsers.add_parser("clean")
-   manager2_parser = subparsers.add_parser("backup")
-   manager3_parser = subparsers.add_parser("recover")
-   manager3_parser.add_argument("--name", nargs='?', const=None, help="Name of the backup")
-   manager4_parser = subparsers.add_parser("build")
+    setup_parser = subparsers.add_parser("setup", help="Run setup for FelooPy")
 
-   script_parser = subparsers.add_parser("run")
-   script_parser.add_argument("file", nargs='?')
+    project_parser = subparsers.add_parser("project", help="Create or manage a project")
+    project_parser.add_argument("--name", required=True, help="Name of the optimization project")
+    project_parser.add_argument("--type", help="Specify project type")
 
-   ext_parser = subparsers.add_parser("ext")
-   ext_parser.add_argument("extensions", nargs='*', help="Extensions to install")
+    backup_parser = subparsers.add_parser("backup", help="Create a backup of the project")
+    backup_parser.add_argument("name", nargs="?", help="Optional name for the backup file")
+    backup_parser.set_defaults(func=zip_project)
 
-   install_parser = subparsers.add_parser("install")
-   install_parser.add_argument("-u", "--update", action="store_true", help="Update installed packages to the latest versions")
-   install_parser.add_argument("packages", nargs='*', help="Packages to install")
+    recover_parser = subparsers.add_parser("recover", help="Recover project from a backup")
+    recover_parser.add_argument("name", nargs="?", help="Name of the backup file to recover")
+    recover_parser.set_defaults(func=recover_project)
 
-   jlinstall_parser = subparsers.add_parser("jlinstall")
-   jlinstall_parser.add_argument("packages", nargs='*', help="Packages to install")
+    clean_parser = subparsers.add_parser("clean", help="Clean the project")
 
-   jluninstall_parser = subparsers.add_parser("jluninstall")
-   jluninstall_parser.add_argument("packages", nargs='*', help="Packages to uninstall")
+    build_parser = subparsers.add_parser("build", help="Build the project")
 
-   uninstall_parser = subparsers.add_parser("uninstall")
-   uninstall_parser.add_argument("packages", nargs='*', help="Packages to uninstall")
+    run_parser = subparsers.add_parser("run", help="Run a Python file")
+    run_parser.add_argument("file", nargs="?", help="Python file to run")
 
-   args = parser.parse_args()
+    ext_parser = subparsers.add_parser("ext", help="Install VSCode extensions")
+    ext_parser.add_argument("extensions", nargs="*", help="Extensions to install")
 
-   command_functions = {
-       "setup": run_setup_file,
-       "detect": cli_detect,
-       "project": lambda: cli_project(args) if args.name else parser.error("--name is required for the 'project' command."),
-       "ext": lambda: install_vscode_extensions(args.extensions) if args.extensions is not None else print("Extensions to install: []."),
-       "backup": zip_project,
-       "recover": lambda: recover_project(args) if args else print("invalid command."),
-       "build": build_project,
-       "clean": clean_project,
-       "deps": get_installed_dependencies,
-       "run": lambda: run_project(args.file) if args.file else print("Error: Please specify a Python file to run."),
-       "install": lambda: pip_install(args.packages, update=args.update) if args.packages else print("Error: Please specify packages to install."),
-       "jlinstall": lambda: julia_install(args.packages) if args.packages else print("Error: Please specify packages to install."),
-       "uninstall": lambda: pip_uninstall(args.packages) if args.packages else print("Error: Please specify packages to uninstall."),
-       "jluninstall": lambda: julia_uninstall(args.packages) if args.packages else print("Error: Please specify packages to install."),
-   }
+    install_parser = subparsers.add_parser("install", help="Install Python packages")
+    install_parser.add_argument("-u", "--update", action="store_true", help="Update installed packages to the latest versions")
+    install_parser.add_argument("packages", nargs="*", help="Packages to install")
 
-   if args.version:
-       cli_version()
-   elif args.command in command_functions.keys():
-       command_functions[args.command]()
-   else:
-       print("Invalid command.")
+    jlinstall_parser = subparsers.add_parser("jlinstall", help="Install Julia packages")
+    jlinstall_parser.add_argument("packages", nargs="*", help="Packages to install")
+
+    jluninstall_parser = subparsers.add_parser("jluninstall", help="Uninstall Julia packages")
+    jluninstall_parser.add_argument("packages", nargs="*", help="Packages to uninstall")
+
+    uninstall_parser = subparsers.add_parser("uninstall", help="Uninstall Python packages")
+    uninstall_parser.add_argument("packages", nargs="*", help="Packages to uninstall")
+
+    args = parser.parse_args()
+
+    if args.version:
+        cli_version()
+    elif args.command:
+        if hasattr(args, "func"):
+            args.func(args)
+        else:
+            print(f"Executing command: {args.command}")
+    else:
+        parser.print_help()
 
 if __name__ == "__main__":
    main()

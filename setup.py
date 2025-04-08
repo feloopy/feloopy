@@ -10,15 +10,11 @@ common = [
     'infix',
     'matplotlib',
     'nbformat',
-    'numba',
     'numpy',
     'openpyxl',
     'pandas',
-    'plotly',
-    'polars',
     'psutil',
     'py-cpuinfo',
-    'scikit-learn',
     'tabulate',
     'win-unicode-console',
     'xlsxwriter',
@@ -34,70 +30,72 @@ pico = [
 
 nano = pico + [
     'pymprog==1.1.2',
-    'highspy',
+    'highspy==1.10.0',
 ]
 
 micro = nano + [
-    'gekko==1.1.1',
+    'gekko==1.3.0',
     'mealpy==3.0.1',
 ]
 
 mini = micro + [
-    'cvxpy==1.5.0',
-    'ortools==9.10.4067',
+    'cvxpy==1.6.4',
+    'ortools==9.12.4544',
 ]
 
 full = mini + [
-    'pydecision==4.5.8',
-    'pymoo==0.6.1.1',
-    'rsome==1.2.6',
+    'pydecision==4.7.5',
+    'pymoo==0.6.1.3',
+    'rsome==1.3.1',
 ]
 
 stock = full + [
-    'linopy==0.3.8',
+    'linopy==0.5.2',
     'mip==1.15.0',
-    'niapy==2.1.0',
-    'picos==2.4.17',
-    'pulp==2.8.0',
-    'pygad==3.2.0',
-    'pyomo==6.7.2',
-    'highsbox',
-    'pyoptinterface',
+    'niapy==2.5.2',
+    'picos==2.6.0',
+    'pulp==3.1.1',
+    'pygad==3.4.0',
+    'pyomo==6.9.1',
+    'highsbox==1.10.0',
+    'pyoptinterface==0.4.1',
 ]
 
 # Solvers for optimization problems or algorithms
 
 plus_gurobi = [
-    'gurobipy',
+    'gurobipy==12.0.1',
 ]
 
+
+plus_copt = [
+    'coptpy==7.2.6',
+]
+
+
 plus_cplex = [
-    'cplex',
-    'docplex',
+    'cplex==22.1.2.0',
+    'docplex==2.29.241',
 ]
 
 plus_xpress = [
-    'xpress',
-]
-
-plus_copt = [
-    'coptpy',
-]
-
-plus_insideoptdemo = [
-    'insideopt-demo',
-]
-
-plus_insideopt = [
-    'insideopt',
+    'xpress==9.5.4',
 ]
 
 plus_gams = [
-    'gamspy',
+    'gamspy==1.8.0',
+]
+
+plus_insideoptdemo = [
+    'insideopt-demo==0.3.3',
+]
+
+plus_insideopt = [
+    'insideopt-seeker==0.1.21',
 ]
 
 plus_jump = [
-    'juliacall',
+    'juliacall==0.9.24',
 ]
 
 hyper = stock + plus_gurobi + plus_cplex + plus_xpress + plus_copt + plus_gams
@@ -109,17 +107,26 @@ only_cylp = [
 ]
 
 only_linux = [
-    'pymultiobjective==1.5.4',
+    'pymultiobjective==1.5.5',
 ]
 
 mega = hyper + only_cylp + only_linux
+
+
+beta = [
+    "casadi==3.7.0",
+    "scipy==1.15.2"
+]
 
 canvas = [
     "IPython",
     "gif",
     "folium",
-
+    "plotly",
 ]
+
+extras = ['numba',
+          'scikit-learn']
 
 extra_dict = {
     'pico': pico,
@@ -139,7 +146,8 @@ extra_dict = {
     'plus_jump': plus_jump,
     'only_cylp': only_cylp,
     'only_linux': only_linux,
-    'mega': mega}
+    'mega': mega,
+    'beta': beta}
 
 keywords_list = [
     'computer science',
@@ -163,7 +171,7 @@ if __name__ == '__main__':
         
         name = 'feloopy',
         
-        version = '0.3.6',
+        version = '0.3.7',
         
         description = 'FelooPy: Efficient and feature-rich integrated decision environment',
         

@@ -6,7 +6,6 @@ import pandas as pd
 import itertools as it
 import numpy as np
 import pandas as pd
-import polars as pl
 import os
 import json
 
@@ -85,12 +84,23 @@ class DataToolkit(FileManager):
                 for key, value in data.items():
                     yield from flatten(key)
                     yield from flatten(value)
-            elif isinstance(data, (np.ndarray, pd.Series, pd.DataFrame)):
-                yield from pd.DataFrame(data).values.flatten() 
+            elif isinstance(data, np.ndarray):
+                for item in data.flatten():
+                    yield from flatten(item)
+            elif isinstance(data, pd.Series):
+                for item in data.values.flatten():
+                    yield from flatten(item)
+            elif isinstance(data, pd.DataFrame):
+                for item in data.values.flatten():
+                    yield from flatten(item)
             elif hasattr(data, '__iter__') and not isinstance(data, (str, bytes)):
                 for item in data:
                     yield from flatten(item)
-            elif isinstance(data, (int, float, str, bytes, complex, bool)): 
+            elif isinstance(data, (int, float, str, bytes, complex, bool)):
+                yield data
+            elif isinstance(data, np.generic):
+                yield data.item()
+            else:
                 yield data
 
         values = list(flatten(data))
@@ -100,6 +110,7 @@ class DataToolkit(FileManager):
 
         if not all(isinstance(x, (int, float)) or isinstance(x, type(values[0])) for x in values):
             return '-', len(values), None, None, None, None
+        
 
         type_checks = {
             'ℝ': all(isinstance(x, (int, float)) for x in values) and any(x > 0 for x in values) and any(x < 0 for x in values), 

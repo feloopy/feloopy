@@ -20,9 +20,12 @@ ortools_solver_selector = {
     'xpress_': 'XPRESS_LINEAR_PROGRAMMING',
     'xpress': 'XPRESS_MIXED_INTEGER_PROGRAMMING',
     'glpk_': 'GLPK_LINEAR_PROGRAMMING',
-    'glpk': 'GLPK_MIXED_INTEGER_PROGRAMMING'
+    'glpk': 'GLPK_MIXED_INTEGER_PROGRAMMING',
+    'highs_': 'HIGHS_LINEAR_PROGRAMMING',
+    'highs': 'HIGHS_MIXED_INTEGER_PROGRAMMING',
+    'pdlp': 'PDLP_LINEAR_PROGRAMMING',
+    
 }
-
 
 def generate_solution(features):
 

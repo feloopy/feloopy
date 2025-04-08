@@ -8,6 +8,26 @@ import timeit
 pymprog_solver_selector = {'glpk': 'glpk'}
 
 
+import sys, os
+from contextlib import contextmanager
+
+@contextmanager
+def suppress_output():
+    original_stdout_fd = sys.stdout.fileno()
+    original_stderr_fd = sys.stderr.fileno()
+    original_stdout = os.dup(original_stdout_fd)
+    original_stderr = os.dup(original_stderr_fd)
+    with open(os.devnull, 'w') as devnull:
+        os.dup2(devnull.fileno(), original_stdout_fd)
+        os.dup2(devnull.fileno(), original_stderr_fd)
+        try:
+            yield
+        finally:
+            os.dup2(original_stdout, original_stdout_fd)
+            os.dup2(original_stderr, original_stderr_fd)
+            os.close(original_stdout)
+            os.close(original_stderr)
+            
 def generate_solution(features):
 
     model_object = features['model_object_before_solve']
@@ -31,11 +51,11 @@ def generate_solution(features):
 
     if log:
 
-        ""
+        msg_lev = pymprog_interface.glpk.GLP_MSG_OFF
 
     else:
-
-        msg_lev = pymprog_interface.glpk.GLP_MSG_OFF
+        pass
+        
         
 
     if time_limit != None:
@@ -63,7 +83,14 @@ def generate_solution(features):
             for constraint in model_constraints:
                 constraint
             time_solve_begin = timeit.default_timer()
-            result = pymprog_interface.solve(msg_lev=msg_lev, tmlim=tmlim)
+            
+            if log:
+                result = pymprog_interface.solve(msg_lev=msg_lev, tmlim=tmlim)
+            
+            else:
+                with suppress_output():
+                    result = pymprog_interface.solve(tmlim=tmlim)
+                
             time_solve_end = timeit.default_timer()
             generated_solution = result, [time_solve_begin, time_solve_end]
 

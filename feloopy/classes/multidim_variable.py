@@ -57,6 +57,9 @@ class MultidimVariableClass:
             return self.features['variables'][("fvar", name)]
 
         elif self.features['solution_method'] == 'heuristic':
+            if any(b is None for b in bound):
+                raise ValueError(f"Both elements of 'bound' for variable '{name}' must be defined.")
+            
             from ..operators.heuristic_operators import generate_heuristic_variable
             return generate_heuristic_variable(
                 self.features, 'fvar', name, dim, bound, self.agent, self.no_agents
@@ -115,7 +118,12 @@ class MultidimVariableClass:
             return self.features['variables'][("pvar", name)]
 
         elif self.features['solution_method'] == 'heuristic':
+            
             from ..operators.heuristic_operators import generate_heuristic_variable
+            
+            if any(b is None for b in bound):
+                raise ValueError(f"Both elements of 'bound' for variable '{name}' must be defined.")
+            
             return generate_heuristic_variable(
                 self.features, 'pvar', name, dim, bound, self.agent, self.no_agents
             )
@@ -173,7 +181,11 @@ class MultidimVariableClass:
             return self.features['variables'][("ivar", name)]
 
         elif self.features['solution_method'] == 'heuristic':
-            from ..operators.heuristic_operators import generate_heuristic_variable
+
+            if any(b is None for b in bound):
+                raise ValueError(f"Both elements of 'bound' for variable '{name}' must be defined.")
+
+            from ..operators.heuristic_operators import generate_heuristic_variable         
             return generate_heuristic_variable(
                 self.features, 'ivar', name, dim, bound, self.agent, self.no_agents
             )

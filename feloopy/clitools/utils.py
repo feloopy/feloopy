@@ -19,7 +19,7 @@ import urllib.request
 from tqdm import tqdm
 from datetime import datetime
 
-__version__ = "v0.3.6"
+__version__ = "v0.3.7"
 
 def download_and_extract(url, output_folder, filename):
    print(f"Downloading and unpacking {filename}")
@@ -33,18 +33,18 @@ def download_and_extract(url, output_folder, filename):
            pbar.update(len(data))
        f.close()
        pbar.close()
-       
+
    if "zip" in filename:
     shutil.unpack_archive(filename, output_folder)
     os.remove(filename)
    elif "tar" in filename:
     shutil.unpack_archive(filename, output_folder, format='gztar')
     os.remove(filename)
-       
+
 def ask_for_directory():
  root = tk.Tk()
  root.withdraw()
- return filedialog.askdirectory() 
+ return filedialog.askdirectory()
 
 def run_setup_file():
  try:
@@ -97,7 +97,7 @@ def create_optimization_project(project_name, directory=".", project_type=None):
    for subdir in ["tables", "figures", "texts"]:
        subdir_path = os.path.join(data_dir, subdir)
        os.makedirs(subdir_path, exist_ok=True)
-       
+
    for subdirectory in subdirectories:
        subdirectory_path = os.path.join(project_dir, subdirectory)
        os.makedirs(subdirectory_path, exist_ok=True)
@@ -171,7 +171,7 @@ def julia_uninstall(packages):
             print(f"Successfully uninstalled {package} with Julia Pkg")
         except Exception as e:
             print(f"Error uninstalling {package} with Julia Pkg: {e}")
-            
+
 def pip_install(packages, update=False):
    for package in packages:
        try:
@@ -198,7 +198,7 @@ def pip_install(packages, update=False):
                   print(f"Successfully {'updated' if update else 'installed'} {package} with pipx")
                except subprocess.CalledProcessError as pipx_error:
                   print(f"Error {'updating' if update else 'installing'} {package} with pipx: {pipx_error}")
-                  
+
 def pip_uninstall(packages):
     for package in packages:
         try:
@@ -231,7 +231,7 @@ def select_directory():
     except:
         print("Error: Unable to use graphical file dialog. Please enter the directory manually.")
         return input("Enter the project directory: ")
-    
+
 def cli_version():
     print(f"FelooPy ({__version__})")
 
@@ -240,52 +240,93 @@ def cli_project(args):
     if directory:
         create_optimization_project(args.name, directory, args.type)
 
-def zip_project():
+def zip_project(args=None):
     backup_dir = os.path.join(".", "backups")
     os.makedirs(backup_dir, exist_ok=True)
 
-    current_datetime = get_current_datetime()
-    zip_file_name = f"bkp-{current_datetime}.zip"
+    if args and getattr(args, "name", None):
+        zip_file_name = f"{args.name}.zip"
+    else:
+        current_datetime = get_current_datetime()
+        zip_file_name = f"bkp-{current_datetime}.zip"
+
     zip_file_path = os.path.join(backup_dir, zip_file_name)
 
-    all_files = [os.path.relpath(os.path.join(dp, f), start=".") for dp, dn, filenames in os.walk(".") for f in filenames + dn if "backups" not in os.path.join(dp, f)]
+    all_files = [
+        os.path.relpath(os.path.join(dp, f), start=".")
+        for dp, dn, filenames in os.walk(".")
+        for f in filenames + dn
+        if "backups" not in os.path.join(dp, f)
+    ]
 
     with zipfile.ZipFile(zip_file_path, 'w') as zipf:
         for file in all_files:
             zipf.write(file, arcname=file)
 
-    print(f"Project excluding 'backups' directory zipped and saved at: {zip_file_path}")
+    print(f"Project (excluding 'backups' directory) zipped and saved at: {zip_file_path}")
 
-def recover_project(args=None):
-   src_files = get_recent_src_files()
+def debug_print(message):
+    print(f"[DEBUG] {message}")
 
-   print("Recent project backups:")
-   for i, src_file in enumerate(src_files, start=1):
-       print(f"{i} | {src_file}")
-       
-   if args.name:
-       selected_src_file = next((file for file in src_files if args.name in file), None)
-       if selected_src_file:
-           delete_all_except_backup()
-           extract_src(selected_src_file)
-           print(f"Project recovered from {selected_src_file}")
-       else:
-           print("No backup found for the given name.")
-       return
+def extract_src(zip_file_path):
+    try:
+        zip_file_path = os.path.abspath(zip_file_path)
+        debug_print(f"Attempting to open: {zip_file_path}")
 
-   selected_index = int(input("Enter the number of the project file to recover: ")) - 1
+        if not os.path.exists(zip_file_path):
+            raise FileNotFoundError(f"The file '{zip_file_path}' does not exist.")
 
-   if 0 <= selected_index < len(src_files):
-       selected_src_file = src_files[selected_index]
+        with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
+            zip_ref.extractall('.')
+        debug_print(f"Successfully extracted '{zip_file_path}' to the current directory.")
 
-       delete_all_except_backup()
+    except Exception as e:
+        print(f"Error extracting '{zip_file_path}': {e}", file=sys.stderr)
+        sys.exit(1)
 
-       extract_src(selected_src_file)
+def recover_project(args):
+    try:
+        backups_dir = os.path.abspath("./backups")
+        debug_print(f"Looking for backups in: {backups_dir}")
 
-       print(f"Project recovered from {selected_src_file}")
-   else:
-       print("Invalid selection.")
-       
+        if not os.path.exists(backups_dir):
+            raise FileNotFoundError(f"The backups directory '{backups_dir}' does not exist.")
+
+        backup_files = [f for f in os.listdir(backups_dir) if f.endswith('.zip')]
+        if not backup_files:
+            raise FileNotFoundError("No backup files found in the backups directory.")
+
+        print("Recent project backups:")
+        for i, file in enumerate(backup_files, start=1):
+            print(f"{i} | {file}")
+
+        if hasattr(args, 'name') and args.name:
+            selected_backup = args.name
+            if ".zip" not in selected_backup:
+                selected_backup+=".zip"
+        else:
+            selection = input("Enter the number of the backup to recover: ")
+            try:
+                selection = int(selection)
+                if selection < 1 or selection > len(backup_files):
+                    raise ValueError("Invalid selection.")
+            except ValueError as e:
+                print(f"Invalid input: {e}", file=sys.stderr)
+                sys.exit(1)
+            selected_backup = backup_files[selection - 1]
+
+        backup_path = os.path.join(backups_dir, selected_backup)
+        debug_print(f"Selected backup: {backup_path}")
+
+        if not os.path.exists(backup_path):
+            raise FileNotFoundError(f"The backup file '{backup_path}' does not exist.")
+
+        extract_src(backup_path)
+
+    except Exception as e:
+        print(f"Error recovering project: {e}", file=sys.stderr)
+        sys.exit(1)
+
 def get_recent_src_files():
     backup_dir = os.path.join(".", "backups")
     src_files = [f for f in os.listdir(backup_dir) if f.startswith("bkp-") and f.endswith(".zip")]
@@ -305,7 +346,7 @@ def extract_src(src_file):
 
     with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
         zip_ref.extractall(".")
-        
+
 def get_current_datetime():
     from datetime import datetime
     return datetime.now().strftime("on-%Y-%m-%d-at-%H-%M-%S")
@@ -357,9 +398,9 @@ def install_vscode_extensions(extensions):
         subprocess.run(['code', '--install-extension', *extensions], check=True)
     except subprocess.CalledProcessError as e:
         print(f"Error installing VS Code extensions: {e}")
-        
+
 def clean_project():
-    
+
     extensions_to_delete = ['.pyc', '.pyo', '.pyd', '.py~', '.log', '.zip']
     directories_to_delete = ['__pycache__']
 
@@ -377,7 +418,7 @@ def clean_project():
                 print(f"Deleted: {dir_path}")
 
     print("Project cleaned successfully.")
-    
+
 def get_installed_dependencies():
     result = subprocess.run(['pip', 'freeze'], stdout=subprocess.PIPE, text=True)
     print(result.stdout)

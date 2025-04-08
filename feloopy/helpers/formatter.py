@@ -1,8 +1,18 @@
 # Copyright (c) 2022-2025, Keivan Tafakkori. All rights reserved.
 # See the file LICENSE file for licensing details.
 
+from rich.console import Console
+from rich.spinner import Spinner
+from datetime import datetime
+import threading
+import time
+import time
+import threading
+from tqdm import tqdm
+import numpy as np
+
 class report:
-    
+
     def __init__(
         self,
         topleft="Result",
@@ -18,7 +28,7 @@ class report:
         self.styles = {
             0: ["╭", "─", "╮", "╰", "─", "╯", "├", "┤", "┬", "┴", "│", "─"],
             1: ["┌", "─", "┐", "└", "─", "┘", "╞", "╡", "┬", "┴", "│", "═"],
-            2: ["+", "-", "+", "+", "-", "+", "|", "|", "-", "-", "|", "="]
+            2: ["+", "-", "+", "+", "-", "+", "|", "|", "-", "-", "|", "="],
         }
 
         self._topleft = self.styles[style][0]
@@ -136,10 +146,9 @@ class report:
         )
 
     def empty(self):
-        
-        print(self._border + (self.width-2)*" "+ self._border)
-        
-        
+
+        print(self._border + (self.width - 2) * " " + self._border)
+
     def middle(self, left="", center="", right=""):
 
         len_left = len(left)
@@ -231,25 +240,34 @@ class report:
         total_width = self.width
 
         label_width = len(label)
-        remaining_width = total_width - label_width - 4 * len(list_of_strings) - len(list_of_strings) * max_string_length
+        remaining_width = (
+            total_width
+            - label_width
+            - 4 * len(list_of_strings)
+            - len(list_of_strings) * max_string_length
+        )
         min_space_between_elements = 1
-        
+
         if len(list_of_strings) > 1:
             min_space_between_elements = remaining_width // (len(list_of_strings) - 1)
-        
-        space_between_elements = min(max_space_between_elements, min_space_between_elements)
+
+        space_between_elements = min(
+            max_space_between_elements, min_space_between_elements
+        )
         if space_between_elements < max_space_between_elements:
-            extra_space = remaining_width - space_between_elements * (len(list_of_strings) - 1)
+            extra_space = remaining_width - space_between_elements * (
+                len(list_of_strings) - 1
+            )
         else:
             extra_space = 0
-        
+
         rowstart = f"{self.start_middle} {label} {' ' * extra_space}"
-        row=""
+        row = ""
         for string in list_of_strings[:-1]:
             row += f"{' ' * (max_string_length - len(string))}{string}{' ' * space_between_elements}"
         row += f"{' ' * (max_string_length - len(list_of_strings[-1]))}{list_of_strings[-1]}"
-        remaining = self.width - len(rowstart)-len(row)-3
-        row = rowstart +remaining*self._middlebar + " "+ row
+        remaining = self.width - len(rowstart) - len(row) - 3
+        row = rowstart + remaining * self._middlebar + " " + row
         print(f"{row} │")
 
     def clear_columns(self, list_of_strings, label, max_space_between_elements=4):
@@ -257,39 +275,61 @@ class report:
         total_width = self.width
 
         label_width = len(label)
-        remaining_width = total_width - label_width - 4 * len(list_of_strings) - len(list_of_strings) * max_string_length
+        remaining_width = (
+            total_width
+            - label_width
+            - 4 * len(list_of_strings)
+            - len(list_of_strings) * max_string_length
+        )
         min_space_between_elements = 1
-        
+
         if len(list_of_strings) > 1:
             min_space_between_elements = remaining_width // (len(list_of_strings) - 1)
-        
-        space_between_elements = min(max_space_between_elements, min_space_between_elements)
+
+        space_between_elements = min(
+            max_space_between_elements, min_space_between_elements
+        )
         if space_between_elements < max_space_between_elements:
-            extra_space = remaining_width - space_between_elements * (len(list_of_strings) - 1)
+            extra_space = remaining_width - space_between_elements * (
+                len(list_of_strings) - 1
+            )
         else:
             extra_space = 0
-        
+
         rowstart = f"{self._border} {label} {' ' * extra_space}"
-        row=""
+        row = ""
         for string in list_of_strings[:-1]:
             row += f"{' ' * (max_string_length - len(string))}{string}{' ' * space_between_elements}"
         row += f"{' ' * (max_string_length - len(list_of_strings[-1]))}{list_of_strings[-1]}"
-        remaining = self.width - len(rowstart)-len(row)-3
-        row = rowstart +remaining*" " + " "+ row
+        remaining = self.width - len(rowstart) - len(row) - 3
+        row = rowstart + remaining * " " + " " + row
         print(f"{row} │")
 
-    def print_tensor(self, label, numpy_var, additional_text=''):
+    def print_tensor(self, label, numpy_var, additional_text=""):
         numpy_var = np.array(numpy_var)
-        numpy_str = np.array2string(numpy_var, separator=', ', prefix='│ ')
-        rows = numpy_str.split('\n')
+        numpy_str = np.array2string(numpy_var, separator=", ", prefix="│ ")
+        rows = numpy_str.split("\n")
         first_row_len = len(rows[0])
         for i, row in enumerate(rows):
             if i == 0:
-                print(self._border + " " + f"{label} = {row}".ljust(self.width - 4 - len(additional_text)) + additional_text + " " + self._border)
+                print(
+                    self._border
+                    + " "
+                    + f"{label} = {row}".ljust(self.width - 4 - len(additional_text))
+                    + additional_text
+                    + " "
+                    + self._border
+                )
             else:
-                print(self._border + " " + (" "*(len(f"{label} =")-1)+row).ljust(self.width - 4) + " " + self._border)
+                print(
+                    self._border
+                    + " "
+                    + (" " * (len(f"{label} =") - 1) + row).ljust(self.width - 4)
+                    + " "
+                    + self._border
+                )
 
-    def print_element(self, label, var, additional_text=''):
+    def print_element(self, label, var, additional_text=""):
 
         if isinstance(var, np.ndarray):
             self._print_numpy_element(label, var)
@@ -312,29 +352,53 @@ class report:
                     current_index[depth] = i
                     print_recursive(depth + 1)
             else:
-                index_str = "[" + ", ".join(str(current_index[dim]) for dim in range(num_dims)) + "]"
+                index_str = (
+                    "["
+                    + ", ".join(str(current_index[dim]) for dim in range(num_dims))
+                    + "]"
+                )
                 value_str = str(numpy_var[tuple(current_index)])
                 if float(value_str) != 0.0:
-                    print(self._border + " " + (f"{label}{index_str} = {value_str}").ljust(self.width - 4) + " " + self._border)
+                    print(
+                        self._border
+                        + " "
+                        + (f"{label}{index_str} = {value_str}").ljust(self.width - 4)
+                        + " "
+                        + self._border
+                    )
 
         print_recursive()
 
     def _print_dict_element(self, label, dict_var):
 
         for key in dict_var.keys():
-            index_str = str(key).replace("(","[").replace(")","]")
-            if "[" in str(index_str): index_str = index_str.replace("[","").replace("]","")
-            else: index_str = index_str
+            index_str = str(key).replace("(", "[").replace(")", "]")
+            if "[" in str(index_str):
+                index_str = index_str.replace("[", "").replace("]", "")
+            else:
+                index_str = index_str
             value_str = str(dict_var[key])
             if float(value_str) != 0.0:
-                print(self._border + " " + (f"{label}[{index_str}] = {value_str}").ljust(self.width - 4) + " " + self._border)
+                print(
+                    self._border
+                    + " "
+                    + (f"{label}[{index_str}] = {value_str}").ljust(self.width - 4)
+                    + " "
+                    + self._border
+                )
 
-    def print_pandas_df(self, label, df, columns=None, additional_text=''):
+    def print_pandas_df(self, label, df, columns=None, additional_text=""):
         for index, row in df.iterrows():
-            thisrow = [format_text(i,length=10, ensure_length=True) if type(i)==str else format_string(i) for i in row.values]
+            thisrow = [
+                (
+                    format_text(i, length=10, ensure_length=True)
+                    if type(i) == str
+                    else format_string(i)
+                )
+                for i in row.values
+            ]
             self.clear_columns(thisrow, "", max_space_between_elements=15)
 
-import numpy as np
 
 def left_align(input, box_width=88, rt=False):
 
@@ -342,21 +406,22 @@ def left_align(input, box_width=88, rt=False):
         return "│" + " " + input.ljust(box_width - 2) + " " + "│"
     else:
         print("│" + " " + input.ljust(box_width - 2) + " " + "│")
-        
+
+
 def format_string(input, length=8, ensure_length=False):
 
     if isinstance(input, str):
         return input
-    
+
     if input is None:
         formatted_str = "None"
-    
+
     elif isinstance(input, int):
         if abs(input) <= 10000:
             formatted_str = f"{input:.0f}"
         else:
             formatted_str = f"{input:.2e}"
-    
+
     elif isinstance(input, float):
         if abs(input) <= 10000:
             formatted_str = f"{input:.2f}"
@@ -364,29 +429,33 @@ def format_string(input, length=8, ensure_length=False):
             formatted_str = f"{input:.2e}"
 
     elif isinstance(input, dict):
-        formatted_str = ', '.join(f"{k}: {format_string(v, length, ensure_length)}" for k, v in input.items())
+        formatted_str = ", ".join(
+            f"{k}: {format_string(v, length, ensure_length)}" for k, v in input.items()
+        )
 
     else:
         formatted_str = str(input)
-    
+
     if ensure_length and len(formatted_str) < length:
-        formatted_str += ' ' * (length - len(formatted_str))
-    
+        formatted_str += " " * (length - len(formatted_str))
+
     return formatted_str
+
 
 def format_text(input_str, length=8, ensure_length=False):
     if input_str is None:
         formatted_str = "None"
     else:
         formatted_str = input_str
-    
+
     if ensure_length:
         if len(formatted_str) < length:
-            formatted_str += ' ' * (length - len(formatted_str))
+            formatted_str += " " * (length - len(formatted_str))
         elif len(formatted_str) > length:
-            formatted_str = formatted_str[:length-3] + "..."
-    
+            formatted_str = formatted_str[: length - 3] + "..."
+
     return formatted_str
+
 
 def center(input, box_width=88):
     print("│" + " " + str(input).center(box_width - 2) + " " + "│")
@@ -705,15 +774,12 @@ def metrics_print(
 
     two_column("CPT (hour:min:sec)", "%02d:%02d:%02d" % (hour, min, sec))
 
-import time
-import threading
-from tqdm import tqdm
 
 def run_with_progress(func, show_log, *args, **kwargs):
     def show_progress():
-        with tqdm(total=0, unit='s', bar_format='{desc}') as pbar:
+        with tqdm(total=0, unit="s", bar_format="{desc}") as pbar:
             while not stop_event.is_set():
-                pbar.set_description("Processing...") 
+                pbar.set_description("Processing...")
                 pbar.update()
                 time.sleep(0.5)
 
@@ -730,11 +796,76 @@ def run_with_progress(func, show_log, *args, **kwargs):
             stop_event.set()
             progress_thread.join()
 
+
 def progress_bar(iterable, unit="iter", description="Progress", remain=False):
     from tqdm import tqdm
 
     leave = False if remain == False else True
     return tqdm(iterable, desc=description, unit=unit, ncols=82, leave=leave)
+
+
+_console = Console()
+_spinner_thread = None
+_spinner_running = False
+_is_notebook = False
+_start_time = None
+
+
+def _detect_notebook():
+    try:
+        from IPython import get_ipython
+
+        if "IPKernelApp" in get_ipython().config:
+            return True
+    except Exception:
+        pass
+    return False
+
+
+def start_progress(message="Processing...", spinner="dots", show_elapsed=False):
+    global _spinner_running, _spinner_thread, _is_notebook, _start_time
+
+    _is_notebook = _detect_notebook()
+    _start_time = datetime.now()
+
+    def format_message():
+        elapsed = f" (Elapsed: {datetime.now() - _start_time})" if show_elapsed else ""
+        return f"{message}{elapsed}"
+
+    def spinner_task():
+        if _is_notebook:
+            from IPython.display import display, clear_output
+            from rich.jupyter import print as jupyter_print
+
+            while _spinner_running:
+                clear_output(wait=True)
+                jupyter_print(Spinner(spinner, text=format_message()))
+                time.sleep(0.1)
+        else:
+            with _console.status(format_message(), spinner=spinner):
+                while _spinner_running:
+                    time.sleep(0.1)
+
+    _spinner_running = True
+    _spinner_thread = threading.Thread(target=spinner_task, daemon=True)
+    _spinner_thread.start()
+
+
+def end_progress(success_message="Done!", failure_message=None, success=True):
+    global _spinner_running, _spinner_thread
+    _spinner_running = False
+    if _spinner_thread is not None:
+        _spinner_thread.join()
+
+    if _is_notebook:
+        from IPython.display import clear_output
+
+        clear_output(wait=True)
+
+    if success:
+        _console.print(f"[bold green]{success_message}[/bold green]")
+    elif failure_message:
+        _console.print(f"[bold red]{failure_message}[/bold red]")
 
 
 def calculate_time_difference(start=0, end=0, length=None):
@@ -750,7 +881,8 @@ def calculate_time_difference(start=0, end=0, length=None):
 
     return hour, minute, second
 
-def format_time_and_microseconds(seconds_value, name=''):
+
+def format_time_and_microseconds(seconds_value, name=""):
 
     microseconds_value = seconds_value * 1e6
 
@@ -759,7 +891,7 @@ def format_time_and_microseconds(seconds_value, name=''):
     hours = int(microseconds_value // 3600e6)
     minutes = int((microseconds_value % 3600e6) // 60e6)
     seconds = int((microseconds_value % 60e6) / 1e6)
-    
+
     time_formatted = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
-    
-    return name+f"{time_formatted} h:m:s {microseconds_scientific_notation} μs"
+
+    return name + f"{time_formatted} h:m:s {microseconds_scientific_notation} μs"

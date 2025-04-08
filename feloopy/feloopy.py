@@ -333,7 +333,6 @@ EXACT_ALGORITHMS = [
     ['cvxpy', 'copt'],
     ['cvxpy', 'cplex'],
     ['cvxpy', 'cvxopt'],
-    ['cvxpy', 'ecos'],
     ['cvxpy', 'glop'],
     ['cvxpy', 'glpk-mi'],
     ['cvxpy', 'glpk'],
@@ -342,6 +341,7 @@ EXACT_ALGORITHMS = [
     ['cvxpy', 'nag'],
     ['cvxpy', 'osqp'],
     ['cvxpy', 'pdlp'],
+    ['cvxpy', 'highs'],
     ['cvxpy', 'proxqp'],
     ['cvxpy', 'scip'],
     ['cvxpy', 'scipy'],
@@ -433,6 +433,9 @@ EXACT_ALGORITHMS = [
     ['ortools', 'scip'],
     ['ortools', 'xpress-'],
     ['ortools', 'xpress'],
+    ['ortools', 'highs'],
+    ['ortools', 'highs_'],
+    ['ortools', 'pdlp'],
     ['mathopt', 'cp-sat'],
     ['mathopt', 'ecos'],
     ['mathopt', 'gscip'],
@@ -670,6 +673,7 @@ RANKING_ALGORITHMS = [
     ['fuzzy_vikor_method', 'pydecision'],
     ['fuzzy_waspas_method', 'pydecision'],
     ['gra_method', 'pydecision'],
+    ['lmaw_method', 'pydecision'],
     ['la_method', 'feloopy'],
     ['mabac_method', 'pydecision'],
     ['macbeth_method', 'pydecision'],
@@ -707,6 +711,7 @@ SPECIAL_ALGORITHMS = [
     ['electre_iii', 'pydecision'],
     ['electre_iv', 'pydecision'],
     ['electre_tri_b', 'pydecision'],
+    ['cpp_tri_method', 'pydecision'],
     ['fuzzy_dematel_method', 'pydecision'],
     ['promethee_gaia', 'pydecision'],
     ['promethee_i', 'pydecision'],
@@ -731,7 +736,7 @@ class model(
     
     def __init__(
         self,
-        name: str = 'model_name',
+        name: str = 'instance',
         method: Literal['constraint', 'convex', 'exact', 'heuristic', 'uncertain'] = 'exact',
         interface: Literal['copt','cplex','cplex_cp','cvxpy','cylp','casadi','feloopy','gekko','gurobi','linopy','mealpy','mip','niapy','ortools','ortools_cp','picos','pulp','pygad','pymoo','pymprog','pymultiobjective','pyomo','rsome_dro','rsome_ro','xpress','insideopt','insideopt-demo', 'scipy' , 'gams','highs', 'jump', 'mathopt', 'pyoptinterface.highs', 'pyoptinterface.copt', 'pyoptinterface.mosek', 'pyoptinterface.gurobi'] = 'pulp',
         agent: Optional[Any] = None,
@@ -768,13 +773,13 @@ class model(
         if validate: 
 
             validate_string(
-                label="method", 
-                list_of_allowed_values=['constraint', 'convex', 'exact', 'heuristic', 'uncertain'], 
+                label="method",
+                list_of_allowed_values=['constraint', 'convex', 'exact', 'heuristic', 'uncertain'],
                 input_string=method,
                 required=True)
 
             validate_string(
-                label="interface", 
+                label="interface",
                 list_of_allowed_values=['copt','cplex','cplex_cp','cvxpy','scipy','cylp','casadi','feloopy','gekko','gurobi','linopy','mealpy','mip','niapy','ortools','ortools_cp','picos','pulp','pygad','pymoo','pymprog','pymultiobjective','pyomo','rsome_dro','rsome_ro','xpress','insideopt','insideopt-demo', 'gams','highs', 'jump', 'mathopt', 'pyoptinterface.highs', 'pyoptinterface.copt', 'pyoptinterface.mosek', 'pyoptinterface.gurobi'], 
                 input_string=interface,
                 required=True)
@@ -797,7 +802,7 @@ class model(
                 label="agent", 
                 input_value=agent, 
                 condition=True if method=="heuristic" else False)
-                           
+
         self.name = name
         self.method = method
         self.interface = interface
@@ -812,7 +817,7 @@ class model(
             self.method = "exact"
         else:
             self.method_was = None
-
+        
         self.features = {
             'solution_method': self.method,
             'model_name': self.name,
@@ -877,7 +882,7 @@ class model(
                 
 
         self.grad_counter=0
- 
+
         self.binary_variable = self.binary = self.bool = self.add_bool = self.add_binary = self.add_binary_variable = self.boolean_variable = self.add_boolean_variable = self.bvar
         self.positive_variable = self.positive = self.add_positive = self.add_positive_variable = self.pvar
         self.integer_variable = self.integer = self.add_integer = self.add_integer_variable = self.ivar
@@ -968,7 +973,7 @@ class model(
         
         from .generators import init_generator
         init_generator.generate_init(self.features,variable,input_value,fix=False)
-         
+
     def tstart(self, name, input_tensor):
         
         input_tensor = np.array(input_tensor)
@@ -1053,9 +1058,7 @@ class model(
                 self.features['objective_variable'] = z
                 
                 expression = expression == self.features['objective_variable']
-                    
-                
-                
+
             if self.features['solution_method'] == 'exact' or (self.features['solution_method'] == 'heuristic' and self.features['agent_status'] == 'idle'):
 
                 self.features['directions'].append(direction)
@@ -1068,7 +1071,10 @@ class model(
             elif self.features['solution_method'] == 'heuristic' and self.features['agent_status'] != 'idle':
 
                 self.features['directions'].append(direction)
-                self.features['objectives'].append(expression)
+                if self.features['interface_name'] == "mealpy":
+                    self.features['objectives'].append(float(expression))
+                else:
+                    self.features['objectives'].append(expression)
                 self.features['objective_counter'][0] += 1
 
     def sol(self, directions=None, solver=None, solver_options=dict(), obj_id=0, email=None, debug=False, time_limit=None, cpu_threads=None, absolute_gap=None, relative_gap=None, show_log=False, save_log=False, save_model=False, max_iterations=None, obj_operators=[]):
@@ -1190,12 +1196,17 @@ class model(
 
                 else:
                     
+                    if self.features['penalty_coefficient'] == 0 and len(self.features['constraints']) != 0:
+                        raise ValueError(f"'penalty_coefficient' must be greater than zero for constrained environments.")
+                    
                     if self.features['vectorized']:
                         
                         if self.features['interface_name']=='feloopy':
 
                             self.penalty = np.zeros(np.shape(self.agent)[0])
-
+                            
+                                
+                                
                             if self.features['penalty_coefficient'] != 0 and len(self.features['constraints']) == 1:
 
                                 self.features['constraints'][0] = np.reshape(
@@ -1530,7 +1541,7 @@ class model(
         command = "cls" if os.name == "nt" else "clear"
         os.system(command)
         self.report(**kwargs)
-         
+        
     def report(self, all_metrics: bool = False, feloopy_info: bool = True, extra_info: bool = False, math_info: bool = False, sys_info: bool = False, model_info: bool = True, sol_info: bool = True, obj_values: bool = True, dec_info: bool = True, metric_info: bool = True, ideal_pareto: Optional[np.ndarray] = [], ideal_point: Optional[np.array] = [], show_tensors = False, show_detailed_tensors=False, save=None):
 
         if not self.healthy():
@@ -1539,7 +1550,7 @@ class model(
             print('WARNING: Model is not healthy!')
             print()
             print()
-             
+            
         self.interface_name = self.features['interface_name']
         if self.method_was==None:
             self.solution_method = self.features['solution_method']
@@ -2806,6 +2817,7 @@ class Implement:
                 self.BestAgent, self.BestReward, self.start, self.end, self.status = feloopy_solution_generator.generate_solution(
                     self.ModelObject, self.Fitness, self.tot_counter, self.objectives_directions, self.ObjectiveBeingOptimized, number_of_times, show_plots, show_log)
 
+
     def dis_plots(self, ideal_pareto: Optional[np.ndarray] = [], step: Optional[tuple] = (0.1,)):
 
         """
@@ -3630,8 +3642,7 @@ class Implement:
         """
 
         Used to get solution time in seconds.
-
-
+        
         """
 
         return self.end-self.start
@@ -3883,7 +3894,6 @@ class Implement:
 
     def get_numpy_var(self, var_name):
         output = []
-
         for i in self.VariablesDim.keys():
             if i == var_name:
                 if self.VariablesDim[i] == 0:
@@ -3894,10 +3904,8 @@ class Implement:
                 else:
                     for k in it.product(*tuple(fix_dims(self.VariablesDim[i]))):
                         output.append(self.get([i, (*k,)]))
-        
-
-            
         return np.array(output)
+    
     
     def healthy(self):
         try:
@@ -4084,10 +4092,19 @@ class MADM:
         self.features['dm_defined'] = True
         self.decision_matrix = np.array(data)
 
-        if self.madam_method != 'electre_tri_b':
+        if self.madam_method != 'electre_tri_b' and 'cpp_tri' not in self.madam_method:
             self.solver_options['dataset'] = self.decision_matrix
+        elif 'cpp_tri' in self.madam_method:
+        
+            self.solver_options['decision_matrix'] = self.decision_matrix
         else:
             self.solver_options['performance_matrix'] = self.decision_matrix
+
+    def add_profiles(self, data):
+
+        self.features['profiles_defined'] = True
+        self.profiles_data = np.array(data)
+        self.solver_options['profiles'] = self.profiles_data
 
     def add_fcim(self, data):
 
@@ -4321,11 +4338,14 @@ class MADM:
 
         self.solver_options.update(solver_options)
 
-        if len(criteria_directions)!=0:
+        try:
+            if len(criteria_directions)!=0:
+            
+                self.solver_options['criterion_type'] = criteria_directions
+                self.criteria_directions = criteria_directions
+        except:
+            pass
         
-            self.solver_options['criterion_type'] = criteria_directions
-            self.criteria_directions = criteria_directions
-
         self.auxiliary_solver_options = dict()
         if show_graph!=None:
             self.auxiliary_solver_options['graph'] = show_graph
@@ -4543,6 +4563,12 @@ class MADM:
                 self.classification = self.result
                 self.features['classification_found'] = True
 
+            if 'cpp_tri' in self.madam_method:
+                self.features['number_of_criteria'] = self.solver_options['decision_matrix'].shape[1]
+                self.features['number_of_alternatives'] = self.solver_options['decision_matrix'].shape[0]
+                self.classification = self.result
+                self.features['classification_found'] = True
+                
             if self.madam_method == 'promethee_v':
                 self.features['number_of_criteria'] = self.solver_options['dataset'].shape[1]
                 self.features['number_of_alternatives'] = self.solver_options['dataset'].shape[0]
@@ -4738,7 +4764,7 @@ class MADM:
 
         if input == 'rpcv':
             return self.R_plus_C
-          
+
         if input in ['dominated']:
             return self.dominated
         
@@ -5011,10 +5037,11 @@ class search(model,Implement):
         *args, **kwargs
     ):
 
-        validate_existence(
-                label="directions", 
-                input_value=directions, 
-                condition=True if method!="constraint" else False)
+        if method!="madm":
+            validate_existence(
+                    label="directions", 
+                    input_value=directions, 
+                    condition=True if method!="constraint" else False)
 
         self.key_params = key_params
         self.key_vars = key_vars
@@ -5046,7 +5073,9 @@ class search(model,Implement):
         self.mgt = 0
         self.track_history = track_history
 
-        self.number_of_objectives = len(self.directions)
+        if self.method!= "madm":
+            
+            self.number_of_objectives = len(self.directions)
         
         start = timeit.default_timer()
         self.create_env(environment)
@@ -5070,7 +5099,7 @@ class search(model,Implement):
             end = timeit.default_timer()
             self.mgt+=end-start
         
-        if len(self.key_params)!=0:
+        if len(self.key_params)!=0 and len(self.scenarios)!=0:
             self.sensitivity(dataset, key_params, scenarios, environment,control_scenario)
 
         if report:
@@ -5091,8 +5120,8 @@ class search(model,Implement):
     def create_env(self, environment):
         
         self.penalty_coefficient=self.options.get("penalty_coefficient",0)
-        if "penalty_coefficient" in self.options.keys():
-            del self.options["penalty_coefficient"]
+        #if "penalty_coefficient" in self.options.keys():
+        #    del self.options["penalty_coefficient"]
     
         if self.method in ["exact", "convex", "constraint", "uncertain"]:
             self.em = model(method=self.method,name=self.name,interface=self.interface)
@@ -5159,68 +5188,142 @@ class search(model,Implement):
         return self.em.healthy()
     
     def run(self, verbose):
+
+        if not verbose:
+            start_progress(message="Searching...", spinner="dots")
         
         import sys
         import threading
         import time
 
         solving_complete = False
-            
-        if  self.number_of_objectives==1:
-            if self.method in ["exact", "convex", "constraint", "uncertain"]:
-                self.em.sol(directions=self.directions, solver=self.solver, show_log=verbose, email=self.email, time_limit=self.time_limit, cpu_threads=self.cpu_threads,absolute_gap=self.absolute_gap, relative_gap=self.relative_gap)
-                    
-            elif self.method == "heuristic":
-                
-                self.em.sol(penalty_coefficient=self.penalty_coefficient, number_of_times=self.repeat,show_log=verbose)
-                
-                if self.track_history:
-
-                    if self.interface in ['mealpy', 'niapy', 'pygad', 'scipy']: 
-
-                        self.best_max = [0] * (self.options["epoch"] - 1)
-                        self.best_min = [0] * (self.options["epoch"] - 1)
-                        self.middle = [0] * (self.options["epoch"] - 1)
-                        self.range = [0] * (self.options["epoch"] - 1)
-                        self.average = [0] * (self.options["epoch"] - 1)
-                        self.std = [0] * (self.options["epoch"] - 1)
+        
+        if self.method!="madm":
+            if  self.number_of_objectives==1:
+                if self.method in ["exact", "convex", "constraint", "uncertain"]:
+                    self.em.sol(directions=self.directions, solver=self.solver, show_log=verbose, email=self.email, time_limit=self.time_limit, cpu_threads=self.cpu_threads,absolute_gap=self.absolute_gap, relative_gap=self.relative_gap)
                         
-                        for i in range(1, self.options["epoch"]):
-                            pop_fit_per_epoch = self.ub_record[i * self.options["pop_size"]:(i + 1) * self.options["pop_size"]]
+                elif self.method == "heuristic":
+                    
+                    self.em.sol(penalty_coefficient=self.penalty_coefficient, number_of_times=self.repeat,show_log=verbose)
+                    
+                    if self.track_history:
+
+                        if self.interface in ['mealpy', 'niapy', 'pygad', 'scipy']: 
+
+                            self.best_max = [0] * (self.options["epoch"] - 1)
+                            self.best_min = [0] * (self.options["epoch"] - 1)
+                            self.middle = [0] * (self.options["epoch"] - 1)
+                            self.range = [0] * (self.options["epoch"] - 1)
+                            self.average = [0] * (self.options["epoch"] - 1)
+                            self.std = [0] * (self.options["epoch"] - 1)
                             
-                            max_current = np.max(pop_fit_per_epoch)
-                            min_current = np.min(pop_fit_per_epoch)
-                            ave_current = np.mean(pop_fit_per_epoch)
-                            std_current = np.std(pop_fit_per_epoch)
+                            for i in range(1, self.options["epoch"]):
+                                pop_fit_per_epoch = self.ub_record[i * self.options["pop_size"]:(i + 1) * self.options["pop_size"]]
+                                
+                                max_current = np.max(pop_fit_per_epoch)
+                                min_current = np.min(pop_fit_per_epoch)
+                                ave_current = np.mean(pop_fit_per_epoch)
+                                std_current = np.std(pop_fit_per_epoch)
 
-                            if i == 1:
-                                self.best_max[i - 1] = max_current
-                                self.best_min[i - 1] = min_current
-                            else:
-                                self.best_max[i - 1] = max(max_current, self.best_max[i - 2])
-                                self.best_min[i - 1] = min(min_current, self.best_min[i - 2])
+                                if i == 1:
+                                    self.best_max[i - 1] = max_current
+                                    self.best_min[i - 1] = min_current
+                                else:
+                                    self.best_max[i - 1] = max(max_current, self.best_max[i - 2])
+                                    self.best_min[i - 1] = min(min_current, self.best_min[i - 2])
 
-                            self.average[i - 1] = ave_current
-                            self.std[i - 1] = std_current
-                            self.middle[i - 1] = (self.best_max[i - 1] + self.best_min[i - 1]) / 2
-                            self.range[i - 1] = self.best_max[i - 1] - self.best_min[i - 1]
+                                self.average[i - 1] = ave_current
+                                self.std[i - 1] = std_current
+                                self.middle[i - 1] = (self.best_max[i - 1] + self.best_min[i - 1]) / 2
+                                self.range[i - 1] = self.best_max[i - 1] - self.best_min[i - 1]
 
-                        self.final_min = self.best_min[-1]
-                        self.final_max = self.best_max[-1]
-                        self.lb_for_min = np.array(self.best_max) - self.range[-1]
-                        self.ub_for_max = np.array(self.best_min) + self.range[-1]
+                            self.final_min = self.best_min[-1]
+                            self.final_max = self.best_max[-1]
+                            self.lb_for_min = np.array(self.best_max) - self.range[-1]
+                            self.ub_for_max = np.array(self.best_min) + self.range[-1]
 
-                        self.stagnation = np.sum(np.array(self.ub_for_max) - np.array(self.best_max) <= 1e-6) / self.options["epoch"]
-                    
-                    else:
-
-                        self.best_max = [0] * (self.options["epoch"] - 1)
-                        self.best_min = [0] * (self.options["epoch"] - 1)
-                        self.middle = [0] * (self.options["epoch"] - 1)
-                        self.range = [0] * (self.options["epoch"] - 1)
-                        self.average = [0] * (self.options["epoch"] - 1)
-                        self.std = [0] * (self.options["epoch"] - 1)
+                            self.stagnation = np.sum(np.array(self.ub_for_max) - np.array(self.best_max) <= 1e-6) / self.options["epoch"]
                         
+                        else:
+
+                            self.best_max = [0] * (self.options["epoch"] - 1)
+                            self.best_min = [0] * (self.options["epoch"] - 1)
+                            self.middle = [0] * (self.options["epoch"] - 1)
+                            self.range = [0] * (self.options["epoch"] - 1)
+                            self.average = [0] * (self.options["epoch"] - 1)
+                            self.std = [0] * (self.options["epoch"] - 1)
+                            
+                            for i in range(1, self.options["epoch"]):
+
+                                min_per_epoch = self.lb_record[i]
+                                max_per_epoch = self.ub_record[i]
+                                ave_per_epoch = self.ave_record[i]
+                                std_per_epoch = self.std_record[i]
+
+                                if i == 1:
+                                    self.best_max[i - 1] = max_per_epoch
+                                    self.best_min[i - 1] = min_per_epoch
+                                else:
+                                    self.best_max[i - 1] = max(max_per_epoch, self.best_max[i - 2])
+                                    self.best_min[i - 1] = min(min_per_epoch, self.best_min[i - 2])
+
+                                self.average[i - 1] = ave_per_epoch
+                                self.std[i - 1] = std_per_epoch
+                                self.middle[i - 1] = (self.best_max[i - 1] + self.best_min[i - 1]) / 2
+                                self.range[i - 1] = self.best_max[i - 1] - self.best_min[i - 1]
+
+                            self.final_min = self.best_min[-1]
+                            self.final_max = self.best_max[-1]
+                            self.lb_for_min = np.array(self.best_max) - self.range[-1]
+                            self.ub_for_max = np.array(self.best_min) + self.range[-1]
+
+                            self.stagnation = np.sum(np.array(self.ub_for_max) - np.array(self.best_max) <= 1e-6) / self.options["epoch"]
+                    
+            else:   
+                if self.method in ["exact", "convex", "constraint", "uncertain"]:
+                    
+                    try:
+                        from .extras.algorithms.exact.multiobjective import sol_multi
+                    except:
+                        from .algorithms.exact.multiobjective import sol_multi
+                        
+                    def instance():
+                        self.em = model(method=self.method, name=self.name, interface=self.interface)
+                        self.em = self.environment(self.em, *self.args, **self.kwargs)
+                        return self.em
+                    
+                    self.time_solve_begin = timeit.default_timer()
+                    self.result = sol_multi(instance=instance,
+                                            directions=self.directions.copy(),
+                                            objective_id=self.approach,
+                                            solver_name=self.solver,
+                                            save_vars=True,
+                                            approach_options=self.options,
+                                            show_log=verbose, 
+                                            email=self.email, 
+                                            time_limit=self.time_limit, 
+                                            cpu_threads=self.cpu_threads,
+                                            absolute_gap=self.absolute_gap, 
+                                            relative_gap=self.relative_gap
+                                            )
+                    self.time_solve_end = timeit.default_timer()
+
+                elif self.method == "heuristic":
+
+                    self.em.solve(show_log=verbose, penalty_coefficient=self.penalty_coefficient)
+
+                    if self.track_history:
+
+                        self.best_max = [[0] * (self.options["epoch"] - 1)]*self.number_of_objectives
+                        self.best_min = [[0] * (self.options["epoch"] - 1)]*self.number_of_objectives
+                        self.middle   = [[0] * (self.options["epoch"] - 1)]*self.number_of_objectives
+                        self.range    = [[0] * (self.options["epoch"] - 1)]*self.number_of_objectives
+                        self.average  = [[0] * (self.options["epoch"] - 1)]*self.number_of_objectives
+                        self.std      = [[0] * (self.options["epoch"] - 1)]*self.number_of_objectives
+                        self.lb_for_min = [[0] * (self.options["epoch"] - 1)]*self.number_of_objectives
+                        self.ub_for_max  = [[0] * (self.options["epoch"] - 1)]*self.number_of_objectives
+
                         for i in range(1, self.options["epoch"]):
 
                             min_per_epoch = self.lb_record[i]
@@ -5229,99 +5332,29 @@ class search(model,Implement):
                             std_per_epoch = self.std_record[i]
 
                             if i == 1:
-                                self.best_max[i - 1] = max_per_epoch
-                                self.best_min[i - 1] = min_per_epoch
+                                for j in range(self.number_of_objectives):
+                                    self.best_max[j][i - 1] = max_per_epoch[j]
+                                    self.best_min[j][i - 1] = min_per_epoch[j]
                             else:
-                                self.best_max[i - 1] = max(max_per_epoch, self.best_max[i - 2])
-                                self.best_min[i - 1] = min(min_per_epoch, self.best_min[i - 2])
-
-                            self.average[i - 1] = ave_per_epoch
-                            self.std[i - 1] = std_per_epoch
-                            self.middle[i - 1] = (self.best_max[i - 1] + self.best_min[i - 1]) / 2
-                            self.range[i - 1] = self.best_max[i - 1] - self.best_min[i - 1]
+                                for j in range(self.number_of_objectives):
+                                    self.best_max[j][i - 1] = max(max_per_epoch[j], self.best_max[j][i - 2])
+                                    self.best_min[j][i - 1] = min(min_per_epoch[j], self.best_min[j][i - 2])
+                            
+                            for j in range(self.number_of_objectives):
+                                self.average[j][i - 1] = ave_per_epoch[j]
+                                self.std[j][i - 1] = std_per_epoch[j]
+                                self.middle[j][i - 1] = (self.best_max[j][i - 1] + self.best_min[j][i - 1]) / 2
+                                self.range[j][i - 1] = self.best_max[j][i - 1] - self.best_min[j][i - 1]
+                        
+                        for i in range(1, self.options["epoch"]):
+                            for j in range(self.number_of_objectives):
+                                self.lb_for_min[j][i - 1] = np.array(self.best_max[j][i-1]) - self.range[j][-1]
+                                self.ub_for_max[j][i - 1] = np.array(self.best_min[j][i-1]) + self.range[j][-1]
 
                         self.final_min = self.best_min[-1]
                         self.final_max = self.best_max[-1]
-                        self.lb_for_min = np.array(self.best_max) - self.range[-1]
-                        self.ub_for_max = np.array(self.best_min) + self.range[-1]
 
                         self.stagnation = np.sum(np.array(self.ub_for_max) - np.array(self.best_max) <= 1e-6) / self.options["epoch"]
-                
-        else:   
-            if self.method in ["exact", "convex", "constraint", "uncertain"]:
-                
-                try:
-                    from .extras.algorithms.exact.multiobjective import sol_multi
-                except:
-                    from .algorithms.exact.multiobjective import sol_multi
-                    
-                def instance():
-                    self.em = model(method=self.method, name=self.name, interface=self.interface)
-                    self.em = self.environment(self.em, *self.args, **self.kwargs)
-                    return self.em
-                
-                self.time_solve_begin = timeit.default_timer()
-                self.result = sol_multi(instance=instance,
-                                         directions=self.directions.copy(),
-                                         objective_id=self.approach,
-                                         solver_name=self.solver,
-                                         save_vars=True,
-                                         approach_options=self.options,
-                                         show_log=verbose, 
-                                         email=self.email, 
-                                         time_limit=self.time_limit, 
-                                         cpu_threads=self.cpu_threads,
-                                         absolute_gap=self.absolute_gap, 
-                                         relative_gap=self.relative_gap
-                                         )
-                self.time_solve_end = timeit.default_timer()
-
-            elif self.method == "heuristic":
-
-                self.em.solve(show_log=verbose, penalty_coefficient=self.penalty_coefficient)
-
-                if self.track_history:
-
-                    self.best_max = [[0] * (self.options["epoch"] - 1)]*self.number_of_objectives
-                    self.best_min = [[0] * (self.options["epoch"] - 1)]*self.number_of_objectives
-                    self.middle   = [[0] * (self.options["epoch"] - 1)]*self.number_of_objectives
-                    self.range    = [[0] * (self.options["epoch"] - 1)]*self.number_of_objectives
-                    self.average  = [[0] * (self.options["epoch"] - 1)]*self.number_of_objectives
-                    self.std      = [[0] * (self.options["epoch"] - 1)]*self.number_of_objectives
-                    self.lb_for_min = [[0] * (self.options["epoch"] - 1)]*self.number_of_objectives
-                    self.ub_for_max  = [[0] * (self.options["epoch"] - 1)]*self.number_of_objectives
-
-                    for i in range(1, self.options["epoch"]):
-
-                        min_per_epoch = self.lb_record[i]
-                        max_per_epoch = self.ub_record[i]
-                        ave_per_epoch = self.ave_record[i]
-                        std_per_epoch = self.std_record[i]
-
-                        if i == 1:
-                            for j in range(self.number_of_objectives):
-                                self.best_max[j][i - 1] = max_per_epoch[j]
-                                self.best_min[j][i - 1] = min_per_epoch[j]
-                        else:
-                            for j in range(self.number_of_objectives):
-                                self.best_max[j][i - 1] = max(max_per_epoch[j], self.best_max[j][i - 2])
-                                self.best_min[j][i - 1] = min(min_per_epoch[j], self.best_min[j][i - 2])
-                        
-                        for j in range(self.number_of_objectives):
-                            self.average[j][i - 1] = ave_per_epoch[j]
-                            self.std[j][i - 1] = std_per_epoch[j]
-                            self.middle[j][i - 1] = (self.best_max[j][i - 1] + self.best_min[j][i - 1]) / 2
-                            self.range[j][i - 1] = self.best_max[j][i - 1] - self.best_min[j][i - 1]
-                    
-                    for i in range(1, self.options["epoch"]):
-                        for j in range(self.number_of_objectives):
-                            self.lb_for_min[j][i - 1] = np.array(self.best_max[j][i-1]) - self.range[j][-1]
-                            self.ub_for_max[j][i - 1] = np.array(self.best_min[j][i-1]) + self.range[j][-1]
-
-                    self.final_min = self.best_min[-1]
-                    self.final_max = self.best_max[-1]
-
-                    self.stagnation = np.sum(np.array(self.ub_for_max) - np.array(self.best_max) <= 1e-6) / self.options["epoch"]
 
         if self.method == "madm":
             self.time_solve_begin = timeit.default_timer()
@@ -5349,6 +5382,7 @@ class search(model,Implement):
                                 elif self.em.VariablesType[j] in ["svar"]:
                                     self.solutions[i][j] = np.argsort(self.em.VariablesBound[j][0] + self.em.BestAgent[i,self.em.VariablesSpread[j][0]:self.em.VariablesSpread[j][1]] * (self.em.VariablesBound[j][1] - self.em.VariablesBound[j][0]))
                 else:
+                    
                     self.solutions = {}
                     if self.method not in ["heuristic"]:
                         for typ, var in self.em.features['variables'].keys():
@@ -5385,7 +5419,7 @@ class search(model,Implement):
                     except:
                         pass
             
-            if self.memorize:
+            if self.memorize and self.method!="madm":
                 if self.number_of_objectives == 1:
                     self.data.update(self.solutions)
                 else:
@@ -5432,6 +5466,8 @@ class search(model,Implement):
             sys.stdout.write('\rSolving... Done!    \n')
             sys.stdout.flush()
             """
+        if not verbose:    
+            end_progress(success_message="√ Searched")
 
     def get(self,input=None):
         
@@ -5460,7 +5496,7 @@ class search(model,Implement):
 
         self.sensitivity_parameter_names = parameter_names
         self.sensitivity_parameter_values = parameter_values
-        
+        result_dataset = data_toolkit(key=0, measure=False)
         if self.em.healthy():
             
             self.sensitivity_analyzed = True
@@ -5488,28 +5524,36 @@ class search(model,Implement):
             self.sensitivity_begin_timer = timeit.default_timer()
             for parameter_name in parameter_names:
                 for key in sensitivity_keys:
-                    dataset.store(f"{key}_{parameter_name}", [])
+                    result_dataset.store(f"{key}_{parameter_name}", [])
                 previous_parameter_value = copy.deepcopy(dataset.data[parameter_name])
                 for parameter_value in parameter_values[parameter_names.index(parameter_name)]:
-                    dataset.data[f"sensitivtiy_values_{parameter_name}"].append(parameter_value)
+                    result_dataset.data[f"sensitivtiy_values_{parameter_name}"].append(parameter_value)
                     dataset.data[parameter_name] = parameter_value
                     self.create_env(environment)
+                    
+                    
                     with suppress(Exception):
                         self.run(verbose=self.verbose)
+                        
                     if self.method!='madm':
                         if self.number_of_objectives==1:
+                            
                             #Single-objective case extraction
                             self.sensitivity_solutions = {}
                             if self.method != "heuristic":
                                 for typ, var in self.em.features['variables'].keys():
                                     self.sensitivity_solutions[var] = self.em.get_numpy_var(var) if self.em.healthy() else None
+                            
                             else:
                                 for j in self.em.VariablesDim.keys():
                                     self.sensitivity_solutions[j]=self.em.get_numpy_var(j) if self.em.healthy() else None
+                            
                             self.sensitivity_objective_values = np.array([[self.em.get_obj()]])[0][0] if self.em.healthy() else None
                             self.sensitivity_num_objective_values = 1
                             self.sensitivity_cpt = self.em.get_time()
+                        
                         else:
+                            
                             #Multi-objective case extraction
                             if self.method != "heuristic":
                                 self.sensitivity_solutions = self.result[3] if self.em.healthy() else None
@@ -5524,51 +5568,78 @@ class search(model,Implement):
                                         self.sensitivity_solutions[i][j]=self.em.get_numpy_var(j) if self.em.healthy() else None
                                 self.sensitivity_objective_values = self.em.get_obj() if self.em.healthy() else None
                                 self.sensitivity_num_objective_values = self.objective_values.shape[0]
-                                self.sensitivity_cpt = self.time_solve_end - self.time_solve_begin
-                    dataset.data[f"sensitivtiy_of_health_to_{parameter_name}"].append(self.em.healthy())
-                    dataset.data[f"sensitivtiy_of_cpt_to_{parameter_name}"].append(self.sensitivity_cpt)
-                    dataset.data[f"sensitivtiy_of_objectives_to_{parameter_name}"].append(self.sensitivity_objective_values)
-                    dataset.data[f"sensitivtiy_of_solutions_to_{parameter_name}"].append(self.sensitivity_solutions)
+                                self.sensitivity_cpt = self.em.get_time()
+                    result_dataset.data[f"sensitivtiy_of_health_to_{parameter_name}"].append(self.em.healthy())
+                    result_dataset.data[f"sensitivtiy_of_cpt_to_{parameter_name}"].append(self.sensitivity_cpt)
+                    result_dataset.data[f"sensitivtiy_of_objectives_to_{parameter_name}"].append(self.sensitivity_objective_values)
+                    result_dataset.data[f"sensitivtiy_of_solutions_to_{parameter_name}"].append(self.sensitivity_solutions)
   
                 dataset.data[parameter_name] = previous_parameter_value
             self.sensitivity_end_timer = timeit.default_timer()         
             
             if self.number_of_objectives==1:
                 for parameter_name in parameter_names:
-                    dataset.data[f"sensitivtiy_of_similarity_to_{parameter_name}"] = compute_similarity(dataset.data[f"sensitivtiy_of_solutions_to_{parameter_name}"],control_scenario_id=control_scenario)
+                    result_dataset.data[f"sensitivtiy_of_similarity_to_{parameter_name}"] = compute_similarity(result_dataset.data[f"sensitivtiy_of_solutions_to_{parameter_name}"],control_scenario_id=control_scenario)
 
-            self.sensitivity_data = copy.deepcopy(dataset.data)
+            self.sensitivity_data = copy.deepcopy(result_dataset.data)
 
             return self.sensitivity_data
-
-    def is_value_unreliable(self,data, bounds, features, vartype):
+        
+    def is_value_unreliable(self, data, bounds, features, vartype):
+        if 'variables' not in features:
+            print("DEBUG: 'variables' key not found in features")
+            return False
+        
         categories = {vartype: []}
         for key, value in features['variables']:
             if key in categories:
                 categories[key].append(value)
-        if vartype=="bvar":
+
+        def flatten_value(v):
+            if isinstance(v, (list, tuple)):
+                for item in v:
+                    yield item
+            elif hasattr(v, "flatten"):
+                try:
+                    flat = v.flatten()
+                    for item in flat:
+                        yield item
+                except Exception as e:
+                    print("DEBUG: Error during flattening using flatten attribute:", e)
+                    yield v
+            else:
+                yield v
+
+        if vartype == "bvar":
+            condition = lambda val: self.epsilon_value <= val <= 1 - self.epsilon_value or val < 0 or val > 1
+        elif vartype in ("ivar", "pvar", "fvar"):
+            condition = lambda val: val < bounds[0] or val > bounds[1]
+        else:
+            print("DEBUG: Unknown vartype provided:", vartype)
+            return False
+
+        def check_data(item):
+            for k, v in item.items():
+                if k in categories[vartype] and k not in ["_z"]:
+                    flat_list = list(flatten_value(v))
+                    condition_results = [condition(val) for val in flat_list]
+            result = any(
+                any(condition(val) for val in flatten_value(v))
+                for k, v in item.items() if k in categories[vartype] and k not in ["_z"]
+            )
+            return result
+
+        try:
             if isinstance(data, dict):
-                return any(self.epsilon_value <= v <= 1 - self.epsilon_value for k, v in data.items() if k in categories[vartype])
-            if isinstance(data, list):
-                return any(self.epsilon_value <= v <= 1 - self.epsilon_value for d in data for k,v in d.items() if k in categories[vartype])
-        
-        if vartype=="ivar":
-            if isinstance(data, dict):
-                return any(v >= bounds[1] or v < bounds[0] for k,v in data.items() if k in categories[vartype])
-            if isinstance(data, list):
-                return any(v >= bounds[1] or v < bounds[0] for d in data for k,v in d.items() if k in categories[vartype])
-            
-        if vartype=="pvar":
-            if isinstance(data, dict):
-                return any(v >= bounds[1] or v < bounds[0] for k,v in data.items() if k in categories[vartype])
-            if isinstance(data, list):
-                return any(v >= bounds[1] or v < bounds[0] for d in data for k,v in d.items() if k in categories[vartype])
-        
-        if vartype=="fvar":
-            if isinstance(data, dict):
-                return any(v >= bounds[1] or v <= bounds[0] for k,v in data.items() if k in categories[vartype])
-            if isinstance(data, list):
-                return any(v >= bounds[1] or v <= bounds[0] for d in data for k,v in d.items() if k in categories[vartype])
+                return check_data(data)
+            elif isinstance(data, list):
+                overall = any(check_data(d) for d in data)
+                return overall
+            else:
+                return False
+        except Exception as e:
+            print("DEBUG: Exception occurred during processing:", e)
+            raise
 
     def is_value_impresice(self,data, bounds, features, vartype):
         categories = {vartype: []}
@@ -5656,14 +5727,20 @@ class search(model,Implement):
             phealthy = f"{Fore.GREEN}{'√ Healthy'}"
         
             if self.inputdata:
+                
                 if type(self.inputdata)!=dict:
+                    
+                    
+
+                
                     self.dataset_size = self.inputdata.size
                     self.big_m_value   = self.inputdata.possible_big_m
                     self.epsilon_value = self.inputdata.possible_epsilon 
+                
                     if self.method in ["exact"]:
 
                         bvar_ok = self.is_value_unreliable(self.solutions, [0,1], self.em.features, "bvar")
-                        ivar_ok = self.is_value_unreliable(self.solutions, [0,1], self.em.features, "ivar")
+                        ivar_ok = self.is_value_unreliable(self.solutions, [0,self.big_m_value], self.em.features, "ivar")
                         pvar_ok = self.is_value_unreliable(self.solutions, [0,self.big_m_value], self.em.features, "pvar")
                         fvar_ok = self.is_value_unreliable(self.solutions, [-self.big_m_value,self.big_m_value], self.em.features, "fvar")
                     
@@ -5738,15 +5815,47 @@ class search(model,Implement):
         import GPUtil
 
         def get_system_characteristics():
-            os_info = platform.system()
-            ram_info = np.round(psutil.virtual_memory().total / (1024.0 ** 3))
-            cpu_info = cpuinfo.get_cpu_info()
-            cpu_generation = cpu_info['brand_raw'].split()[-1]
-            gpus = GPUtil.getGPUs()
-            gpu_memory = sum(gpu.memoryTotal for gpu in gpus)
-            gpu_memory_gb = np.round(gpu_memory / 1024)
-            system_characteristics = f"OS:{os_info} RAM:{ram_info}GB CPU:{cpu_generation} GPU:{gpu_memory_gb}GB"
-            return system_characteristics
+            
+            # OS
+            os_name = platform.system()
+            if os_name == "Windows":
+                os_info = f"Windows {platform.release()}"
+            elif os_name == "Linux":
+                os_info = f"Linux {platform.release()}"
+            elif os_name == "Darwin":
+                os_info = f"macOS {platform.mac_ver()[0]}"
+            else:
+                os_info = f"{os_name} {platform.release()}"
+
+            # RAM
+            ram_gb = int(np.round(psutil.virtual_memory().total / (1024.0 ** 3)))
+            
+            # CPU
+            cpu = cpuinfo.get_cpu_info()['brand_raw']
+            cpu_brand = "AMD" if "AMD" in cpu else "Intel"
+            cpu_spec = ' '.join(cpu.split()[1:4]).replace("(R)", "").replace("(TM)", "").split("@")[0].strip()
+            
+            # GPU
+            gpu_list = []
+            for gpu in GPUtil.getGPUs():
+                if "intel" in gpu.name.lower():
+                    gpu_list.append(f"Intel ({gpu.name.split('Graphics')[0].strip()} Graphics)")
+                else:
+                    vram = f"{int(gpu.memoryTotal/1024)}GB"
+                    gpu_list.append(f"{gpu.name.split()[0]} ({' '.join(gpu.name.split()[1:])}, {vram})")
+            
+            full_report = (
+                f"OS: {os_info} | CPU: {cpu_brand} ({cpu_spec}, {ram_gb}GB) | GPU: {', '.join(gpu_list)}"
+            )
+            
+            if len(full_report) > width-5:
+                short_report = f"OS: {os_info} | CPU: {cpu_brand} ({cpu_spec}, {ram_gb}GB)"
+                if len(short_report) > width-5:
+                    short_report = f"OS: {os_info} | CPU: {cpu_brand} | RAM: {ram_gb}GB"
+                return short_report
+
+            return full_report
+
 
         box.clear_columns(list_of_strings=["",f"{pconfigurated}"], label= f"Type: {ptype}", max_space_between_elements=4)
         
@@ -5913,7 +6022,14 @@ class search(model,Implement):
 
             # Fourth box: Decisions
             print()
-            box.top(left="Decision")
+            box.top(
+                left="Decision",
+                right=(
+                    "Zeros not reported!" if (show_elements and self.healthy()) 
+                    else "" if self.healthy() 
+                    else "Nothing!"
+                )
+            )
             try:
                 if self.method in ["constraint"]:
                     box.empty()

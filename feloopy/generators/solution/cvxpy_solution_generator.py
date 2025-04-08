@@ -9,7 +9,6 @@ warnings.filterwarnings("ignore")
 
 cvxpy_solver_selector = {
     'osqp': cvxpy_interface.OSQP,
-    'ecos': cvxpy_interface.ECOS,
     'copt': cvxpy_interface.COPT,
     'cvxopt': cvxpy_interface.CVXOPT,
     'scs': cvxpy_interface.SCS,
@@ -27,8 +26,8 @@ cvxpy_solver_selector = {
     'pdlp': cvxpy_interface.PDLP,
     'glop': cvxpy_interface.GLOP,
     'scip': cvxpy_interface.SCIP,
-    'xpress': cvxpy_interface.XPRESS}
-
+    'xpress': cvxpy_interface.XPRESS,
+    'highs': cvxpy_interface.HIGHS}
 
 def generate_solution(features):
 
