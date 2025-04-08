@@ -5,7 +5,7 @@ authors:
   - family-names: "Tafakkori"
     given-names: "Keivan"
 version: "0.3.7"
-date-released: 2025-04-01
+date-released: 2025-04-08
 repository-code: "https://github.com/feloopy/feloopy/"
 preferred-citation:
   type: software
