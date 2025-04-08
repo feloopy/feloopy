@@ -191,9 +191,9 @@ if __name__ == '__main__':
         
         maintainer_email='k.tafakkori@gmail.com',
         
-        url='https://github.com/ktafakkori/feloopy',
+        url='https://feloopy.github.io/',
         
-        download_url='https://github.com/ktafakkori/feloopy/releases',
+        download_url='https://github.com/feloopy/feloopy/releases',
         
         license='MIT',
         
