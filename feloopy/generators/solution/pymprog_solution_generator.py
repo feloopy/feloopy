@@ -9,24 +9,35 @@ pymprog_solver_selector = {'glpk': 'glpk'}
 
 
 import sys, os
-from contextlib import contextmanager
+import sys
+import os
+import io
+from contextlib import contextmanager, redirect_stdout, redirect_stderr
 
 @contextmanager
 def suppress_output():
-    original_stdout_fd = sys.stdout.fileno()
-    original_stderr_fd = sys.stderr.fileno()
+    try:
+        original_stdout_fd = sys.stdout.fileno()
+        original_stderr_fd = sys.stderr.fileno()
+    except io.UnsupportedOperation:
+        with open(os.devnull, 'w') as devnull, \
+             redirect_stdout(devnull), \
+             redirect_stderr(devnull):
+            yield
+        return
     original_stdout = os.dup(original_stdout_fd)
     original_stderr = os.dup(original_stderr_fd)
-    with open(os.devnull, 'w') as devnull:
-        os.dup2(devnull.fileno(), original_stdout_fd)
-        os.dup2(devnull.fileno(), original_stderr_fd)
-        try:
+    try:
+        with open(os.devnull, 'w') as devnull:
+            os.dup2(devnull.fileno(), original_stdout_fd)
+            os.dup2(devnull.fileno(), original_stderr_fd)
             yield
-        finally:
-            os.dup2(original_stdout, original_stdout_fd)
-            os.dup2(original_stderr, original_stderr_fd)
-            os.close(original_stdout)
-            os.close(original_stderr)
+    finally:
+        os.dup2(original_stdout, original_stdout_fd)
+        os.dup2(original_stderr, original_stderr_fd)
+        os.close(original_stdout)
+        os.close(original_stderr)
+
             
 def generate_solution(features):
 
