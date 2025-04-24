@@ -3,7 +3,7 @@
 
 [tool.poetry]
 name = "feloopy"
-version = "0.3.7"
+version = "0.3.8"
 description = "FelooPy: Efficient and feature-rich integrated decision environment"
 authors = ["Keivan Tafakkori <k.tafakkori@gmail.com>"]
 license = "MIT"
@@ -28,6 +28,7 @@ win-unicode-console = ""
 xlsxwriter = ""
 tqdm= ""
 colorama = ""
+rich = ""
 
 [tool.poetry.group.pico.dependencies]
 

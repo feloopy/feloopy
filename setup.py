@@ -20,6 +20,7 @@ common = [
     'xlsxwriter',
     'tqdm',
     'colorama',
+    'rich',
 ]
 
 # Interfaces for optimization solvers or algorithms
@@ -171,7 +172,7 @@ if __name__ == '__main__':
         
         name = 'feloopy',
         
-        version = '0.3.7',
+        version = '0.3.8',
         
         description = 'FelooPy: Efficient and feature-rich integrated decision environment',
         

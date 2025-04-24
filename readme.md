@@ -17,7 +17,7 @@
 
 <div align="center" style="margin-bottom: 2px;">
 
-![Version](https://img.shields.io/static/v1?label=version&message=v0.3.7&color=green&labelColor=grey)
+![Version](https://img.shields.io/static/v1?label=version&message=v0.3.8&color=green&labelColor=grey)
 ![Release Date](https://img.shields.io/github/release-date/feloopy/feloopy?label=release&color=green&labelColor=grey)
 [![Downloads](https://static.pepy.tech/personalized-badge/feloopy?period=total&units=international_system&left_color=grey&right_color=green&left_text=downloads)](https://pepy.tech/project/feloopy)
 ![License](https://img.shields.io/static/v1?label=license&message=MIT&color=green&labelColor=grey)
@@ -48,7 +48,7 @@ FelooPy (/fɛlupaɪ/) is a user-friendly tool for coding, modeling, and solving 
 You can install `feloopy` inside a Python>=3.1x.x virtual environment:
 
 ```bash
-pip install -U "feloopy[stock]==0.3.7"
+pip install -U "feloopy[stock]==0.3.8"
 ```
 
 For supporting the developer, testing the latest version, and reporting bugs or contributing to the codebase, use:
@@ -109,7 +109,7 @@ url          = {https://github.com/feloopy/feloopy/}
 <details>
 <summary>Previous citations</summary>
 
-#### Versions before 0.3.7
+#### Versions before 0.3.6
 
 ##### APA 6th/7th Edition
 

@@ -1589,7 +1589,7 @@ class model(
             now = datetime.datetime.now()
             date_str = now.strftime("Date: %Y-%m-%d")
             time_str = now.strftime("Time: %H:%M:%S")
-            tline_text("FelooPy v0.3.7")
+            tline_text("FelooPy v0.3.8")
             empty_line()
             two_column(date_str, time_str)
             two_column(f"Interface: {self.interface_name}", f"Solver: {self.solver_name}")
@@ -3798,7 +3798,7 @@ class Implement:
             now = datetime.datetime.now()
             date_str = now.strftime("Date: %Y-%m-%d")
             time_str = now.strftime("Time: %H:%M:%S")
-            tline_text("FelooPy v0.3.7")
+            tline_text("FelooPy v0.3.8")
             empty_line()
             two_column(date_str, time_str)
             two_column(f"Interface: {self.interface_name}", f"Solver: {self.solver_name}")
@@ -4922,7 +4922,7 @@ class MADM:
         date_str = now.strftime("Date: %Y-%m-%d")
         time_str = now.strftime("Time: %H:%M:%S")
 
-        tline_text("FelooPy v0.3.7")
+        tline_text("FelooPy v0.3.8")
         empty_line()
         two_column(date_str, time_str)
 
@@ -5640,17 +5640,44 @@ class search(model,Implement):
         except Exception as e:
             print("DEBUG: Exception occurred during processing:", e)
             raise
+        
+    def is_value_impresice(self, data, bounds, features, vartype):
+        if 'variables' not in features:
+            print("DEBUG: 'variables' key not found in features")
+            return False
 
-    def is_value_impresice(self,data, bounds, features, vartype):
         categories = {vartype: []}
         for key, value in features['variables']:
-            if key in categories:
+            if key == vartype:
                 categories[key].append(value)
-        if vartype=="bvar":
+
+        def flatten_value(v):
+            if isinstance(v, (list, tuple)):
+                for item in v:
+                    yield item
+            elif hasattr(v, "flatten"):
+                try:
+                    flat = v.flatten()
+                    for item in flat:
+                        yield item
+                except Exception as e:
+                    print("DEBUG: Error flattening:", e)
+                    yield v
+            else:
+                yield v
+
+        if vartype == "bvar":
             if isinstance(data, dict):
-                return any(v not in [0,1] for k, v in data.items() if k in categories[vartype])
-            if isinstance(data, list):
-                return any(v not in [0,1] for d in data for k,v in d.items() if k in categories[vartype])
+                return any(val not in [0, 1] for k, v in data.items() 
+                        if k in categories[vartype] 
+                        for val in flatten_value(v))
+            elif isinstance(data, list):
+                return any(val not in [0, 1] for d in data 
+                        for k, v in d.items() 
+                        if k in categories[vartype] 
+                        for val in flatten_value(v))
+        return False
+
 
     def benchmark(self, environment=None, algorithms=None, repeat=1, show_report=False):
 
@@ -5778,7 +5805,7 @@ class search(model,Implement):
         formatted_date = current_datetime.strftime("%Y-%m-%d")
         formatted_time = current_datetime.strftime("%H:%M:%S")
     
-        box.top(left="FelooPy v0.3.7", right="Released January 2025")
+        box.top(left="FelooPy v0.3.8", right="Released January 2025")
         box.empty()
         
         box.clear_columns(list_of_strings=["", f"Interface: {self.interface}"], label=f"Date: {formatted_date}", max_space_between_elements=4)

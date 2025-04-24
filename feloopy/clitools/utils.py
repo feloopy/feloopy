@@ -19,7 +19,7 @@ import urllib.request
 from tqdm import tqdm
 from datetime import datetime
 
-__version__ = "v0.3.7"
+__version__ = "v0.3.8"
 
 def download_and_extract(url, output_folder, filename):
    print(f"Downloading and unpacking {filename}")
