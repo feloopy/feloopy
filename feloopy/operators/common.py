@@ -208,11 +208,8 @@ def version(INPUT):
     print(INPUT.__version__)
     return (INPUT)
 
-import pandas as pd
 import os
 import sys
-
-
 
 def compare(results, show_fig=True, save_fig=False, file_name=None, dpi=800, fig_size=(15, 3), alpha=0.8, line_width=5):
 

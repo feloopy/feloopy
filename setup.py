@@ -12,7 +12,7 @@ common = [
     'nbformat',
     'numpy==1.26.4',
     'openpyxl',
-    'pandas',
+    'pandas==1.5.3',
     'psutil',
     'py-cpuinfo',
     'tabulate',
