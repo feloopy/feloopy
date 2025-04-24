@@ -5805,7 +5805,7 @@ class search(model,Implement):
         formatted_date = current_datetime.strftime("%Y-%m-%d")
         formatted_time = current_datetime.strftime("%H:%M:%S")
     
-        box.top(left="FelooPy v0.3.8", right="Released January 2025")
+        box.top(left="FelooPy v0.3.8", right="Released May 2025")
         box.empty()
         
         box.clear_columns(list_of_strings=["", f"Interface: {self.interface}"], label=f"Date: {formatted_date}", max_space_between_elements=4)
