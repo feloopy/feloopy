@@ -80,29 +80,33 @@ flp.search(example,directions=["max"]).clean_report()
 <br>
 
 
-### Quick Citation
+## Quick Citation
 
-To cite or give credit to FelooPy in publications, projects, presentations, web pages, blog posts, etc. please use one of the following entries, based on the used version:
+To cite or give credit to FelooPy in publications, projects, presentations, web pages, blog posts, etc., please use one of the following entries based on the version you used:
 
-<br>
+---
 
-#### APA 6th/7th Edition
+### APA 7th Edition  
+**Tafakkori, K.** (2022–2025). *FelooPy: Efficient and feature-rich integrated decision environment* (Version 0.3.8) [Computer software]. GitHub. [https://github.com/feloopy/feloopy](https://github.com/feloopy/feloopy)
 
-Tafakkori, K. (2025). *Efficient and feature-rich integrated decision environment* [Python Library]. Retrieved from [https://github.com/feloopy/feloopy](https://github.com/feloopy/feloopy) (Original work published April 2025).
+*For APA 6th Edition*, use:  
+**Tafakkori, K.** (2025). *FelooPy: Efficient and feature-rich integrated decision environment* (Version 0.3.8) [Computer software]. Retrieved from [https://github.com/feloopy/feloopy](https://github.com/feloopy/feloopy)  
 
-#### LaTeX/BiBTeX
+---
 
-```
-@software{ktafakkori2025Apr,
-author       = {Keivan Tafakkori},
-title        = {{FelooPy: Efficient and feature-rich integrated decision environment}},
-year         = {2025},
-month        = apr,
-publisher    = {GitHub},
-url          = {https://github.com/feloopy/feloopy/}
+### LaTeX/BibTeX
+
+```bibtex
+@software{tafakkori_feloopy_2025,
+  author      = {Keivan Tafakkori},
+  title       = {{FelooPy: Efficient and Feature-Rich Integrated Decision Environment}},
+  year        = {2025},
+  version     = {0.3.8},
+  publisher   = {GitHub},
+  url         = {https://github.com/feloopy/feloopy},
+  note        = {Original release: September 2022},
 }
 ```
-
 <br>
 <br>
 
