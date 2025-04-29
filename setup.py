@@ -10,7 +10,6 @@ common = [
     "infix",
     "matplotlib",
     "nbformat",
-    "numpy",
     "openpyxl",
     "pandas",
     "psutil",
