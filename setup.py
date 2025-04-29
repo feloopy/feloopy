@@ -10,6 +10,7 @@ common = [
     "infix",
     "matplotlib",
     "nbformat",
+    "numpy",
     "openpyxl",
     "pandas",
     "psutil",
@@ -109,7 +110,6 @@ only_linux = [
 ]
 
 mega = hyper + only_cylp + only_linux
-
 
 beta = ["casadi==3.7.0", "scipy==1.15.2"]
 
