@@ -33,3 +33,4 @@ update.py
 backups/
 workflows/
 mytests/
+release*
