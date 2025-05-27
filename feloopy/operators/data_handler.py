@@ -348,28 +348,42 @@ class DataToolkit(FileManager):
         
         if isinstance(init, (list, range)):
             init = np.array(init)
-
-        if axis is None:
-            sampled_indices = self.random.choice(init.size, size=size, replace=replace)
-        else:
-            axis = np.atleast_1d(axis)
-            
-            for ax in axis:
-                axis_size = init.shape[ax]
-                sampled_indices = self.random.choice(axis_size, size=size, replace=replace)
-            
-                init = np.take(init, sampled_indices, axis=ax)
         
-        if return_indices:
+        if axis is None:
+            flat = init.flatten()
+            sampled_idx = self.random.choice(flat.size, size=size, replace=replace)
+            
+            if return_indices:
+                if sort_result:
+                    sampled_idx = np.sort(sampled_idx)
+                return sampled_idx
+            
+            sampled_vals = flat[sampled_idx]
             if sort_result:
-                sampled_indices.sort()
-            result = sampled_indices
-        else:
-            result = init
-            if sort_result:
-                result.sort()
+                sampled_vals = np.sort(sampled_vals)
+            return sampled_vals
 
-        return result
+        else:
+
+            axes = np.atleast_1d(axis).tolist()
+            
+            sampled = init
+            idxs = {}
+            for ax in axes:
+                ax_size = sampled.shape[ax]
+                idx = self.random.choice(ax_size, size=size, replace=replace)
+                idxs[ax] = idx
+                sampled = np.take(sampled, idx, axis=ax)
+            
+            if return_indices:
+                result = tuple(idxs[ax] for ax in axes)
+                if sort_result:
+                    result = tuple(np.sort(arr) for arr in result)
+                return result
+            
+            if sort_result:
+                sampled = np.sort(sampled, axis=None)
+            return sampled
 
     def _sample_pandas_dataframe(self, name, init, size, replace=False, sort_result=False, return_indices=False, axis=None):
         axis = 0 if axis is None else axis 
@@ -533,6 +547,7 @@ class DataToolkit(FileManager):
                 result = {key: self.random.negative_binomial(r, p) for key in dim}
             else:
                 result = self.random.negative_binomial(r, p, size=tuple(dim))
+
         return self.__keep(name, result, neglect)
 
     def hypergeometric(self, name, dim=0, N=None, m=None, n=None, result=None, neglect=False):
@@ -643,15 +658,15 @@ class DataToolkit(FileManager):
     def weibull(self, name, dim=0, alpha=None, beta=None, result=None, neglect=False):
         dim = self.__fix_dims(dim, is_range=False)
         if dim == 0:
-            result = alpha * self.random.weibull(a=beta)
+            result = beta * self.random.weibull(a=alpha)
         else:
-            if type(dim)==set:
-                result = {key: alpha * self.random.weibull(a=beta) for key in dim}
-            else: 
-                result = alpha * self.random.weibull(a=beta, size=dim)
+            if isinstance(dim, set):
+                result = {key: beta * self.random.weibull(a=alpha) for key in dim}
+            else:
+                result = beta * self.random.weibull(a=alpha, size=dim)
         return self.__keep(name, result, neglect)
 
-    def cauchy(self, name, dim=0, alpha=None, beta=None, result=None, neglect=False):
+    def cauchy(self, name, dim=0, result=None, neglect=False):
         dim = self.__fix_dims(dim, is_range=False)
         if dim == 0:
             result = self.random.standard_cauchy()
@@ -662,41 +677,41 @@ class DataToolkit(FileManager):
                 result = self.random.standard_cauchy(size=dim)
         return self.__keep(name, result, neglect)
 
-    def dirichlet(self, name, dim=0, k=None, alpha=None, result=None, neglect=False):
-        dim = self.__fix_dims(dim, is_range=False)
+    def dirichlet(self, name, dim=0, k=None, alpha=None, neglect=False):
+        batch_shape = tuple(self.__fix_dims(dim, is_range=False))
         if alpha is None:
             if k is not None:
                 alpha = np.ones(k)
-            elif isinstance(dim, list):
-                alpha = np.ones(len(dim[-1]))
-        if dim == 0 or len(dim) == 1:
-            result = self.random.dirichlet(alpha)
-        else:
-            if type(dim)==set:
-                result = {key: self.random.dirichlet(alpha) for key in dim}
             else:
-                result = self.random.dirichlet(alpha, size=dim)
+                if len(batch_shape) >= 1:
+                    alpha = np.ones(batch_shape[-1])
+                else:
+                    raise ValueError("Must pass k or a multi‐dim dim so that the last entry is the number of categories")
+        size_arg = batch_shape if batch_shape else None
+        result = self.random.dirichlet(alpha, size=size_arg)
+        
+        # 4) register and return
         return self.__keep(name, result, neglect)
 
     def colors(self, name, dim=0, neglect=False, with_names=True):
         import matplotlib.colors as mcolors
-        self.colors = dict(mcolors.BASE_COLORS, **mcolors.CSS4_COLORS)
+        self.colors_dict = dict(mcolors.BASE_COLORS, **mcolors.CSS4_COLORS)
         dim = self.__fix_dims(dim,is_range=False)
         dim = [range(i) for i in dim]
         if dim == 0:    
             if with_names:
-                result = self.random.choice(list(self.colors.keys()))
+                result = self.random.choice(list(self.colors_dict.keys()))
             else:
                 result = '#{:06x}'.format(self.random.integers(0, 0xFFFFFF))
         else:
             if len(dim) == 1:
                 if with_names:
-                    result = {key: self.random.choice(list(self.colors.keys())) for key in dim[0]}
+                    result = {key: str(self.random.choice(list(self.colors_dict.keys()))) for key in dim[0]}
                 else:
                     result = {key: '#{:06x}'.format(self.random.integers(0, 0xFFFFFF)) for key in dim[0]}
             else:
                 if with_names:
-                    result = {key: self.random.choice(list(self.colors.keys())) for key in it.product(*dim)}
+                    result = {key: str(self.random.choice(list(self.colors_dict.keys()))) for key in it.product(*dim)}
                 else:
                     result = {key: '#{:06x}'.format(self.random.integers(0, 0xFFFFFF)) for key in it.product(*dim)}
         return self.__keep(name, result, neglect)

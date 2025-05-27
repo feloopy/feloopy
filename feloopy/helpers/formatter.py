@@ -802,13 +802,12 @@ def progress_bar(iterable, unit="iter", description="Progress", remain=False):
 
     leave = False if remain == False else True
     return tqdm(iterable, desc=description, unit=unit, ncols=82, leave=leave)
-
-
 _console = Console()
 _spinner_thread = None
 _spinner_running = False
 _is_notebook = False
 _start_time = None
+_show_elapsed = False
 
 
 def _detect_notebook():
@@ -822,15 +821,37 @@ def _detect_notebook():
     return False
 
 
+def _format_elapsed(delta):
+    total_seconds = int(delta.total_seconds())
+    periods = [
+        ('week', 60 * 60 * 24 * 7),
+        ('day', 60 * 60 * 24),
+        ('hour', 60 * 60),
+        ('minute', 60),
+        ('second', 1),
+    ]
+    strings = []
+
+    for name, count in periods:
+        value, total_seconds = divmod(total_seconds, count)
+        if value:
+            strings.append(f"{value} {name}{'s' if value > 1 else ''}")
+
+    return ", ".join(strings) if strings else "0 seconds"
+
+
 def start_progress(message="Processing...", spinner="dots", show_elapsed=False):
-    global _spinner_running, _spinner_thread, _is_notebook, _start_time
+    global _spinner_running, _spinner_thread, _is_notebook, _start_time, _show_elapsed
 
     _is_notebook = _detect_notebook()
     _start_time = datetime.now()
+    _show_elapsed = show_elapsed
 
     def format_message():
-        elapsed = f" (Elapsed: {datetime.now() - _start_time})" if show_elapsed else ""
-        return f"{message}{elapsed}"
+        elapsed_str = ""
+        if _show_elapsed:
+            elapsed_str = f" (Elapsed: {_format_elapsed(datetime.now() - _start_time)})"
+        return f"{message}{elapsed_str}"
 
     def spinner_task():
         if _is_notebook:
@@ -851,8 +872,9 @@ def start_progress(message="Processing...", spinner="dots", show_elapsed=False):
     _spinner_thread.start()
 
 
-def end_progress(success_message="Done!", failure_message=None, success=True):
+def end_progress(success_message="Done!", failure_message=None, success=True, show_elapsed=None):
     global _spinner_running, _spinner_thread
+
     _spinner_running = False
     if _spinner_thread is not None:
         _spinner_thread.join()
@@ -862,10 +884,16 @@ def end_progress(success_message="Done!", failure_message=None, success=True):
 
         clear_output(wait=True)
 
+    final_show = _show_elapsed if show_elapsed is None else show_elapsed
+    elapsed_str = ""
+    if final_show and _start_time:
+        elapsed_str = f"for {_format_elapsed(datetime.now() - _start_time)} > "
+
     if success:
-        _console.print(f"[bold green]{success_message}[/bold green]")
+        _console.print(f"[bold green]{success_message}{elapsed_str}[/bold green]")
     elif failure_message:
-        _console.print(f"[bold red]{failure_message}[/bold red]")
+        _console.print(f"[bold red]{failure_message}{elapsed_str}[/bold red]")
+
 
 
 def calculate_time_difference(start=0, end=0, length=None):

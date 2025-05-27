@@ -20,6 +20,7 @@ from .algorithms import *
 from .classes import *
 from .helpers import *
 from .operators import *
+from .agents import *
 
 __author__ = ['Keivan Tafakkori']
 
@@ -5744,7 +5745,7 @@ class search(model,Implement):
     def report(self, skip_system_information=True, show_elements=False, width=90,style=1,skip=False,full=False):
         
         # First box: FelooPy
-        print()
+        #print()
         from colorama import init, Fore
         init(autoreset=True)
 

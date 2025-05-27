@@ -75,9 +75,9 @@ def generate_variable(model_object, variable_type, variable_name, variable_bound
 
         case 'btvar':
             if variable_dim ==0:
-                generated_variable = VariableGenerator(1, integer=True, name=variable_name)
+                generated_variable = VariableGenerator(1, name=variable_name, boolean=True)
             else:
                 dims = tuple(len(dim) for dim in variable_dim)
-                generated_variable = VariableGenerator(dims, integer=True, name=variable_name)
+                generated_variable = VariableGenerator(dims, boolean=True, name=variable_name)
 
     return generated_variable
