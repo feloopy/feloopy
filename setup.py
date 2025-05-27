@@ -2,6 +2,7 @@
 # See the file LICENSE file for licensing details.
 
 from setuptools import setup, find_packages
+import os
 
 # Common packages for all versions of FelooPy
 
@@ -160,14 +161,30 @@ keywords_list = [
     "supply chain",
 ]
 
+here = os.path.abspath(os.path.dirname(__file__))
+def read_file(fname):
+    path = os.path.join(here, fname)
+    try:
+        with open(path, encoding="utf-8") as f:
+            return f.read()
+    except FileNotFoundError:
+        return ""
+
+def get_version():
+    version_ns = {}
+    version_file = os.path.join(os.path.dirname(__file__), "feloopy", "_version.py")
+    with open(version_file) as f:
+        exec(f.read(), version_ns)
+    return version_ns["__version__"]
+
 if __name__ == "__main__":
 
     setup(
         name="feloopy",
-        version="0.3.8",
+        version=get_version(),
         description="FelooPy: Efficient and feature-rich integrated decision environment",
         packages=find_packages(include=["feloopy", "feloopy.*"]),
-        long_description=open("./readme.md", encoding="utf8").read(),
+        long_description=read_file("readme.md"),
         long_description_content_type="text/markdown",
         keywords=keywords_list,
         author="Keivan Tafakkori",

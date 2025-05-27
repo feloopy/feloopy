@@ -22,6 +22,8 @@ from .helpers import *
 from .operators import *
 from .agents import *
 
+from ._version import __version__, __release_month__, __release_year__
+
 __author__ = ['Keivan Tafakkori']
 
 HEURISTIC_ALGORITHMS = [
@@ -1590,7 +1592,7 @@ class model(
             now = datetime.datetime.now()
             date_str = now.strftime("Date: %Y-%m-%d")
             time_str = now.strftime("Time: %H:%M:%S")
-            tline_text("FelooPy v0.3.8")
+            tline_text(f"FelooPy v{__version__}")
             empty_line()
             two_column(date_str, time_str)
             two_column(f"Interface: {self.interface_name}", f"Solver: {self.solver_name}")
@@ -3799,7 +3801,7 @@ class Implement:
             now = datetime.datetime.now()
             date_str = now.strftime("Date: %Y-%m-%d")
             time_str = now.strftime("Time: %H:%M:%S")
-            tline_text("FelooPy v0.3.8")
+            tline_text(f"FelooPy v{__version__}")
             empty_line()
             two_column(date_str, time_str)
             two_column(f"Interface: {self.interface_name}", f"Solver: {self.solver_name}")
@@ -4923,7 +4925,7 @@ class MADM:
         date_str = now.strftime("Date: %Y-%m-%d")
         time_str = now.strftime("Time: %H:%M:%S")
 
-        tline_text("FelooPy v0.3.8")
+        tline_text(f"FelooPy v{__version__}")
         empty_line()
         two_column(date_str, time_str)
 
@@ -5805,8 +5807,9 @@ class search(model,Implement):
         current_datetime = datetime.datetime.now()
         formatted_date = current_datetime.strftime("%Y-%m-%d")
         formatted_time = current_datetime.strftime("%H:%M:%S")
-    
-        box.top(left="FelooPy v0.3.8", right="Released May 2025")
+
+
+        box.top(left=f"FelooPy v{__version__}", right=f"Released {__release_month__} {__release_year__}")
         box.empty()
         
         box.clear_columns(list_of_strings=["", f"Interface: {self.interface}"], label=f"Date: {formatted_date}", max_space_between_elements=4)

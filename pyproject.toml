@@ -1,11 +1,8 @@
-# Copyright (c) 2022-2025, Keivan Tafakkori. All rights reserved.
-# See the file LICENSE file for licensing details.
-
 [tool.poetry]
 name = "feloopy"
 version = "0.3.8"
 description = "FelooPy: Efficient and feature-rich integrated decision environment"
-authors = ["Keivan Tafakkori <k.tafakkori@gmail.com>"]
+authors = [ "Keivan Tafakkori <k.tafakkori@gmail.com>",]
 license = "MIT"
 
 [tool.poetry.dependencies]
@@ -26,9 +23,14 @@ scikit-learn = ""
 tabulate = ""
 win-unicode-console = ""
 xlsxwriter = ""
-tqdm= ""
+tqdm = ""
 colorama = ""
 rich = ""
+
+[tool.poetry.scripts]
+feloopy = "feloopy.cli:main"
+flp = "feloopy.cli:main"
+fly = "feloopy.cli:main"
 
 [tool.poetry.group.pico.dependencies]
 
@@ -79,7 +81,7 @@ pulp = "3.1.1"
 pygad = "3.4.0"
 pyomo = "6.9.1"
 highsbox = "1.10.0"
-pyoptinterface= "0.4.1"
+pyoptinterface = "0.4.1"
 
 [tool.poetry.group.plus_gurobi.dependencies]
 gurobipy = "12.0.1"
@@ -138,7 +140,7 @@ pulp = "3.1.1"
 pygad = "3.4.0"
 pyomo = "6.9.1"
 highsbox = "1.10.0"
-pyoptinterface= "0.4.1"
+pyoptinterface = "0.4.1"
 gurobipy = "12.0.1"
 coptpy = "7.2.6"
 cplex = "22.1.2.0"
@@ -170,7 +172,7 @@ pulp = "3.1.1"
 pygad = "3.4.0"
 pyomo = "6.9.1"
 highsbox = "1.10.0"
-pyoptinterface= "0.4.1"
+pyoptinterface = "0.4.1"
 gurobipy = "12.0.1"
 coptpy = "7.2.6"
 cplex = "22.1.2.0"
@@ -179,8 +181,3 @@ xpress = "9.5.4"
 gampspy = "1.8.0"
 cylp = "0.92.2"
 pymultiobjective = "1.5.4"
-
-[tool.poetry.scripts]
-feloopy = "feloopy.cli:main"
-flp = "feloopy.cli:main"
-fly = "feloopy.cli:main"
