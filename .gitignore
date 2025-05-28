@@ -34,4 +34,5 @@ backups/
 workflows/
 mytests/
 release*
+publish.py
 README_MAIN.md
