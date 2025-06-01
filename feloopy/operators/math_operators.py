@@ -1,7 +1,6 @@
 # Copyright (c) 2022-2025, Keivan Tafakkori. All rights reserved.
 # See the file LICENSE file for licensing details.
 
-
 import math as mt
 
 def extract_slopes_intercepts(func_str, num_breakpoints, x_range):

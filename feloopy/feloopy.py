@@ -5403,7 +5403,6 @@ class search(model,Implement):
                     else:
                         for j in self.em.VariablesDim.keys():
                             self.solutions[j] = self.em.get_numpy_var(j)
-
             else:
                 values_list = [
                         'rv', 
