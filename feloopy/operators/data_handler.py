@@ -348,42 +348,28 @@ class DataToolkit(FileManager):
         
         if isinstance(init, (list, range)):
             init = np.array(init)
-        
+
         if axis is None:
-            flat = init.flatten()
-            sampled_idx = self.random.choice(flat.size, size=size, replace=replace)
-            
-            if return_indices:
-                if sort_result:
-                    sampled_idx = np.sort(sampled_idx)
-                return sampled_idx
-            
-            sampled_vals = flat[sampled_idx]
-            if sort_result:
-                sampled_vals = np.sort(sampled_vals)
-            return sampled_vals
-
+            sampled_indices = self.random.choice(init.size, size=size, replace=replace)
         else:
-
-            axes = np.atleast_1d(axis).tolist()
+            axis = np.atleast_1d(axis)
             
-            sampled = init
-            idxs = {}
-            for ax in axes:
-                ax_size = sampled.shape[ax]
-                idx = self.random.choice(ax_size, size=size, replace=replace)
-                idxs[ax] = idx
-                sampled = np.take(sampled, idx, axis=ax)
+            for ax in axis:
+                axis_size = init.shape[ax]
+                sampled_indices = self.random.choice(axis_size, size=size, replace=replace)
             
-            if return_indices:
-                result = tuple(idxs[ax] for ax in axes)
-                if sort_result:
-                    result = tuple(np.sort(arr) for arr in result)
-                return result
-            
+                init = np.take(init, sampled_indices, axis=ax)
+        
+        if return_indices:
             if sort_result:
-                sampled = np.sort(sampled, axis=None)
-            return sampled
+                sampled_indices.sort()
+            result = sampled_indices
+        else:
+            result = init
+            if sort_result:
+                result.sort()
+
+        return result
 
     def _sample_pandas_dataframe(self, name, init, size, replace=False, sort_result=False, return_indices=False, axis=None):
         axis = 0 if axis is None else axis 
@@ -547,7 +533,6 @@ class DataToolkit(FileManager):
                 result = {key: self.random.negative_binomial(r, p) for key in dim}
             else:
                 result = self.random.negative_binomial(r, p, size=tuple(dim))
-
         return self.__keep(name, result, neglect)
 
     def hypergeometric(self, name, dim=0, N=None, m=None, n=None, result=None, neglect=False):
@@ -658,15 +643,15 @@ class DataToolkit(FileManager):
     def weibull(self, name, dim=0, alpha=None, beta=None, result=None, neglect=False):
         dim = self.__fix_dims(dim, is_range=False)
         if dim == 0:
-            result = beta * self.random.weibull(a=alpha)
+            result = alpha * self.random.weibull(a=beta)
         else:
-            if isinstance(dim, set):
-                result = {key: beta * self.random.weibull(a=alpha) for key in dim}
-            else:
-                result = beta * self.random.weibull(a=alpha, size=dim)
+            if type(dim)==set:
+                result = {key: alpha * self.random.weibull(a=beta) for key in dim}
+            else: 
+                result = alpha * self.random.weibull(a=beta, size=dim)
         return self.__keep(name, result, neglect)
 
-    def cauchy(self, name, dim=0, result=None, neglect=False):
+    def cauchy(self, name, dim=0, alpha=None, beta=None, result=None, neglect=False):
         dim = self.__fix_dims(dim, is_range=False)
         if dim == 0:
             result = self.random.standard_cauchy()
@@ -677,41 +662,41 @@ class DataToolkit(FileManager):
                 result = self.random.standard_cauchy(size=dim)
         return self.__keep(name, result, neglect)
 
-    def dirichlet(self, name, dim=0, k=None, alpha=None, neglect=False):
-        batch_shape = tuple(self.__fix_dims(dim, is_range=False))
+    def dirichlet(self, name, dim=0, k=None, alpha=None, result=None, neglect=False):
+        dim = self.__fix_dims(dim, is_range=False)
         if alpha is None:
             if k is not None:
                 alpha = np.ones(k)
+            elif isinstance(dim, list):
+                alpha = np.ones(len(dim[-1]))
+        if dim == 0 or len(dim) == 1:
+            result = self.random.dirichlet(alpha)
+        else:
+            if type(dim)==set:
+                result = {key: self.random.dirichlet(alpha) for key in dim}
             else:
-                if len(batch_shape) >= 1:
-                    alpha = np.ones(batch_shape[-1])
-                else:
-                    raise ValueError("Must pass k or a multi‐dim dim so that the last entry is the number of categories")
-        size_arg = batch_shape if batch_shape else None
-        result = self.random.dirichlet(alpha, size=size_arg)
-        
-        # 4) register and return
+                result = self.random.dirichlet(alpha, size=dim)
         return self.__keep(name, result, neglect)
 
     def colors(self, name, dim=0, neglect=False, with_names=True):
         import matplotlib.colors as mcolors
-        self.colors_dict = dict(mcolors.BASE_COLORS, **mcolors.CSS4_COLORS)
+        self.colors = dict(mcolors.BASE_COLORS, **mcolors.CSS4_COLORS)
         dim = self.__fix_dims(dim,is_range=False)
         dim = [range(i) for i in dim]
         if dim == 0:    
             if with_names:
-                result = self.random.choice(list(self.colors_dict.keys()))
+                result = self.random.choice(list(self.colors.keys()))
             else:
                 result = '#{:06x}'.format(self.random.integers(0, 0xFFFFFF))
         else:
             if len(dim) == 1:
                 if with_names:
-                    result = {key: str(self.random.choice(list(self.colors_dict.keys()))) for key in dim[0]}
+                    result = {key: self.random.choice(list(self.colors.keys())) for key in dim[0]}
                 else:
                     result = {key: '#{:06x}'.format(self.random.integers(0, 0xFFFFFF)) for key in dim[0]}
             else:
                 if with_names:
-                    result = {key: str(self.random.choice(list(self.colors_dict.keys()))) for key in it.product(*dim)}
+                    result = {key: self.random.choice(list(self.colors.keys())) for key in it.product(*dim)}
                 else:
                     result = {key: '#{:06x}'.format(self.random.integers(0, 0xFFFFFF)) for key in it.product(*dim)}
         return self.__keep(name, result, neglect)
@@ -754,10 +739,36 @@ class DataToolkit(FileManager):
             globals()[key] = value
 
     def load_from_excel(
-        self, name: str, dim: list, labels: list, appearance: list, file_name: str, neglect=False
+        self,
+        name: str,
+        dim=0,
+        labels: list = None,
+        appearance: list = None,
+        file_name: str = "data.xlsx",
+        neglect: bool = False
     ):
+
         
+        if labels is None and type(dim)!=int:
+            labels=["" for d in dim]
+
+        if dim==0:
+            labels=[""]
+            appearance=[0,0]
+
+        if isinstance(dim, list) and len(dim) >= 1 and isinstance(dim[0], set):
+            dim = [len(d) for d in dim]
         dim = self.__fix_dims(dim, is_range=True)
+
+        def _format_index_key(level_vals, label, key):
+            if label:
+                return label + str(key)
+            if key in level_vals:
+                return key
+            ks = str(key)
+            if ks in level_vals:
+                return ks
+            return key
 
         if len(appearance) == 2:
             if (
@@ -769,42 +780,89 @@ class DataToolkit(FileManager):
                 result = pd.read_excel(
                     file_name, index_col=0, sheet_name=name
                 ).to_numpy()
+
             else:
-                parameter = pd.read_excel(
-                    file_name,
-                    header=[i for i in range(appearance[1])],
-                    index_col=[i for i in range(appearance[0])],
-                    sheet_name=name,
-                )
-                created_par = np.zeros(shape=([len(i) for i in dim]))
+                header_arg = [i for i in range(appearance[1])] if appearance[1] > 0 else None
+                index_arg = [i for i in range(appearance[0])] if appearance[0] > 0 else None
+
+                try:
+                    parameter = pd.read_excel(
+                        file_name,
+                        header=header_arg,
+                        index_col=index_arg,
+                        sheet_name=name,
+                    )
+                except Exception as e:
+                    raise ValueError(
+                        f"Cannot read sheet '{name}' with header={header_arg} "
+                        f"and index_col={index_arg}:\n  {e}"
+                    )
+
+                created_par = np.zeros(tuple(len(x) for x in dim), dtype=float)
+
+                row_index = parameter.index
+                col_index = parameter.columns
+
                 for keys in it.product(*dim):
                     try:
-                        created_par[keys] = parameter.loc[
-                            tuple(
-                                [labels[i] + str(keys[i]) for i in range(appearance[0])]
-                            ),
-                            tuple(
-                                [
-                                    labels[i] + str(keys[i])
-                                    for i in range(appearance[0], len(labels))
-                                ]
-                            ),
-                        ]
-                    except:
-                        created_par[keys] = None
+                        row_elems = []
+                        if isinstance(row_index, pd.MultiIndex):
+                            for i in range(appearance[0]):
+                                level_vals = row_index.levels[i]
+                                row_elems.append(_format_index_key(level_vals, labels[i], keys[i]))
+                        else:
+                            level_vals = row_index
+                            row_elems.append(_format_index_key(level_vals, labels[0], keys[0]))
+
+                        row_key = tuple(row_elems) if appearance[0] > 1 else row_elems[0]
+                        col_elems = []
+                        if appearance[1] > 0:
+                            if isinstance(col_index, pd.MultiIndex):
+                                for j in range(appearance[1]):
+                                    level_vals = col_index.levels[j]
+                                    col_elems.append(
+                                        _format_index_key(
+                                            level_vals,
+                                            labels[appearance[0] + j],
+                                            keys[appearance[0] + j],
+                                        )
+                                    )
+                                col_key = tuple(col_elems)
+                            else:
+                                level_vals = col_index
+                                col_elems.append(
+                                    _format_index_key(
+                                        level_vals,
+                                        labels[appearance[0]],
+                                        keys[appearance[0]],
+                                    )
+                                )
+                                col_key = col_elems[0]
+                        else:
+                            col_key = None
+                        if appearance[0] == 0:
+                            val = parameter.loc[:, col_key]
+                        elif appearance[1] == 0:
+                            val = parameter.loc[row_key]
+                        else:
+                            val = parameter.loc[row_key, col_key]
+                        if isinstance(val, (pd.Series, pd.DataFrame, np.ndarray)):
+                            arr = np.array(val).flatten()
+                            val = arr[0] if arr.size > 0 else np.nan
+                        created_par[keys] = val
+                    except Exception:
+                        created_par[keys] = np.nan
+
                 result = created_par
+
         else:
             par = pd.read_excel(file_name, index_col=0, sheet_name=name).to_numpy()
-            result = par.reshape(
-                par.shape[0],
-            )
-        
-        if dim==0:
-            result=result[0][0]
-        
-        elif len(dim)==1:
-            result=np.reshape(result,[len(dim[0]),])
-        
+            result = par.reshape(par.shape[0],)
+
+        if dim == 0:
+            result = result[0][0]
+        elif len(dim) == 1:
+            result = np.reshape(result, [len(dim[0]),])
         else:
             pass
 
