@@ -8,6 +8,7 @@ def product(iterable):
     return mt.prod(iterable)
 
 def count_variable(variable_dim, total_count, special_count):
+    
     total_count[0] += 1
     special_count[0] += 1
     if variable_dim == 0:
@@ -33,14 +34,12 @@ def update_variable_features(name, variable_dim, variable_bound, variable_counte
 
         start_counter = features['total_variable_counter'][1]
 
-        if variable_counter_type == 'sequential_variable_counter':
-
-            changed = True
-
-            variable_counter_type = 'integer_variable_counter'
-        
-        else:
-            changed =False
+        #fixed svar counter
+        # if variable_counter_type == 'sequential_variable_counter':
+        #     changed = True
+        #     variable_counter_type = 'integer_variable_counter'
+        # else:
+        #     changed =False
         
         features['total_variable_counter'], features[variable_counter_type] = count_variable(variable_dim, features['total_variable_counter'], features[variable_counter_type])
         end_counter = features['total_variable_counter'][1]
@@ -54,9 +53,9 @@ def update_variable_features(name, variable_dim, variable_bound, variable_counte
             'sequential_variable_counter': 'svar'
         }
         
-        if changed:
-
-            variable_counter_type = 'sequential_variable_counter'
+        #fixed svar counter
+        # if changed:
+        #     variable_counter_type = 'sequential_variable_counter'
 
         features['variable_type'][name] = variable_type_mapping[variable_counter_type]
         features['variable_bound'][name] = variable_bound

@@ -469,7 +469,7 @@ class DataToolkit(FileManager):
             
         return self.__keep(name, result, neglect)
     
-    def uniformint(self, name, dim=0, bound=[1, 10], result=None, neglect=False):
+    def uniformint(self, name, dim=0, bound=[1, 10], neglect=False):
         dim = self.__fix_dims(dim,is_range=False)
         if dim == 0:
             result = self.random.integers(low=bound[0], high=bound[1] + 1)
@@ -480,7 +480,7 @@ class DataToolkit(FileManager):
                 result = self.random.integers(low=bound[0], high=bound[1] + 1, size=dim)
         return self.__keep(name, result, neglect)
     
-    def bernoulli(self, name, dim=0, p=0.5, result=None, neglect=False):
+    def bernoulli(self, name, dim=0, p=0.5, neglect=False):
         dim = self.__fix_dims(dim,is_range=False)
         if dim == 0:
             result = self.random.choice([0, 1], p=[1-p, p])
@@ -491,7 +491,7 @@ class DataToolkit(FileManager):
                 result = self.random.choice([0, 1], p=[1-p, p], size=dim)
         return self.__keep(name, result, neglect)
     
-    def binomial(self, name, dim=0, n=None, p=None, result=None, neglect=False):
+    def binomial(self, name, dim=0, n=None, p=None, neglect=False):
         dim = self.__fix_dims(dim, is_range=False)
         if dim == 0:
             result = self.random.binomial(n, p)
@@ -502,7 +502,7 @@ class DataToolkit(FileManager):
                 result = self.random.binomial(n, p, size=tuple(dim))
         return self.__keep(name, result, neglect)
 
-    def poisson(self, name, dim=0, lam=1, result=None, neglect=False):
+    def poisson(self, name, dim=0, lam=1, neglect=False):
         dim = self.__fix_dims(dim, is_range=False)
         if dim == 0:
             result = self.random.poisson(lam)
@@ -513,7 +513,7 @@ class DataToolkit(FileManager):
                 result = self.random.poisson(lam, size=tuple(dim))
         return self.__keep(name, result, neglect)
 
-    def geometric(self, name, dim=0, p=None, result=None, neglect=False):
+    def geometric(self, name, dim=0, p=None, neglect=False):
         dim = self.__fix_dims(dim, is_range=False)
         if dim == 0:
             result = self.random.geometric(p)
@@ -524,7 +524,7 @@ class DataToolkit(FileManager):
                 result = self.random.geometric(p, size=tuple(dim))
         return self.__keep(name, result, neglect)
 
-    def negative_binomial(self, name, dim=0, r=None, p=None, result=None, neglect=False):
+    def negative_binomial(self, name, dim=0, r=None, p=None, neglect=False):
         dim = self.__fix_dims(dim, is_range=False)
         if dim == 0:
             result = self.random.negative_binomial(r, p)
@@ -535,7 +535,7 @@ class DataToolkit(FileManager):
                 result = self.random.negative_binomial(r, p, size=tuple(dim))
         return self.__keep(name, result, neglect)
 
-    def hypergeometric(self, name, dim=0, N=None, m=None, n=None, result=None, neglect=False):
+    def hypergeometric(self, name, dim=0, N=None, m=None, n=None, neglect=False):
         nbad = m
         ngood = N - m
         nsamples = n
@@ -550,7 +550,7 @@ class DataToolkit(FileManager):
                 result = self.random.hypergeometric(ngood, nbad, nsamples, size=tuple(dim))
         return self.__keep(name, result, neglect)
 
-    def uniform(self, name, dim=0, bound=[0, 1], result=None, neglect=False):
+    def uniform(self, name, dim=0, bound=[0, 1], neglect=False):
         dim = self.__fix_dims(dim,is_range=False)
         if dim == 0:
             result = self.random.uniform(low=bound[0], high=bound[1])
@@ -561,7 +561,7 @@ class DataToolkit(FileManager):
                 result = self.random.uniform(low=bound[0], high=bound[1], size=dim)
         return self.__keep(name, result, neglect)
 
-    def weight(self, name, dim=0, bound=[0, 1], result=None, neglect=False):
+    def weight(self, name, dim=0, bound=[0, 1], neglect=False):
         dim = self.__fix_dims(dim,is_range=False)
         if dim == 0:
             data = self.random.uniform(low=bound[0], high=bound[1])
@@ -573,7 +573,7 @@ class DataToolkit(FileManager):
             result = data / data.sum(axis=-1, keepdims=True) if data.sum() != 0 else data
         return self.__keep(name, result, neglect)
 
-    def normal(self, name, dim=0, mu=0, sigma=1, result=None, neglect=False):
+    def normal(self, name, dim=0, mu=0, sigma=1, neglect=False):
         dim = self.__fix_dims(dim,is_range=False)
         if dim == 0:
             result = self.random.normal(mu, sigma)
@@ -584,7 +584,7 @@ class DataToolkit(FileManager):
                 result = self.random.normal(mu, sigma, size=dim)
         return self.__keep(name, result, neglect)
 
-    def standard_normal(self, name, dim=0, result=None, neglect=False):
+    def standard_normal(self, name, dim=0, neglect=False):
         dim = self.__fix_dims(dim,is_range=False)
         if dim == 0:
             result = self.random.normal(0, 1)
@@ -595,7 +595,7 @@ class DataToolkit(FileManager):
                 result = self.random.normal(0, 1, size=dim)
         return self.__keep(name, result, neglect)
 
-    def exponential(self, name, dim=0, lam=1.0, result=None, neglect=False):
+    def exponential(self, name, dim=0, lam=1.0, neglect=False):
         dim = self.__fix_dims(dim, is_range=False)
         if dim == 0:
             result = self.random.exponential(scale=1/lam)
@@ -606,7 +606,7 @@ class DataToolkit(FileManager):
                 result = self.random.exponential(scale=1/lam, size=dim)
         return self.__keep(name, result, neglect)
 
-    def gamma(self, name, dim=0, alpha=1, lam=1, result=None, neglect=False):
+    def gamma(self, name, dim=0, alpha=1, lam=1, neglect=False):
         dim = self.__fix_dims(dim, is_range=False)
         if dim == 0:
             result = self.random.gamma(shape=alpha, scale=1/lam)
@@ -617,7 +617,7 @@ class DataToolkit(FileManager):
                 result = self.random.gamma(shape=alpha, scale=1/lam, size=dim)
         return self.__keep(name, result, neglect)
 
-    def erlang(self, name, dim=0, alpha=1, lam=1, result=None, neglect=False):
+    def erlang(self, name, dim=0, alpha=1, lam=1, neglect=False):
         alpha = int(alpha)
         dim = self.__fix_dims(dim, is_range=False)
         if dim == 0:
@@ -629,7 +629,7 @@ class DataToolkit(FileManager):
                 result = self.random.gamma(shape=alpha, scale=1/lam, size=dim)
         return self.__keep(name, result, neglect)
 
-    def beta(self, name, dim=0, a=1, b=1, result=None, neglect=False):
+    def beta(self, name, dim=0, a=1, b=1, neglect=False):
         dim = self.__fix_dims(dim, is_range=False)
         if dim == 0:
             result = self.random.beta(a, b, size=None)
@@ -640,7 +640,7 @@ class DataToolkit(FileManager):
                 result = self.random.beta(a, b, size=dim)
         return self.__keep(name, result, neglect)
 
-    def weibull(self, name, dim=0, alpha=None, beta=None, result=None, neglect=False):
+    def weibull(self, name, dim=0, alpha=None, beta=None, neglect=False):
         dim = self.__fix_dims(dim, is_range=False)
         if dim == 0:
             result = alpha * self.random.weibull(a=beta)
@@ -651,7 +651,7 @@ class DataToolkit(FileManager):
                 result = alpha * self.random.weibull(a=beta, size=dim)
         return self.__keep(name, result, neglect)
 
-    def cauchy(self, name, dim=0, alpha=None, beta=None, result=None, neglect=False):
+    def cauchy(self, name, dim=0, neglect=False):
         dim = self.__fix_dims(dim, is_range=False)
         if dim == 0:
             result = self.random.standard_cauchy()
@@ -662,7 +662,7 @@ class DataToolkit(FileManager):
                 result = self.random.standard_cauchy(size=dim)
         return self.__keep(name, result, neglect)
 
-    def dirichlet(self, name, dim=0, k=None, alpha=None, result=None, neglect=False):
+    def dirichlet(self, name, dim=0, k=None, alpha=None, neglect=False):
         dim = self.__fix_dims(dim, is_range=False)
         if alpha is None:
             if k is not None:
@@ -680,27 +680,375 @@ class DataToolkit(FileManager):
 
     def colors(self, name, dim=0, neglect=False, with_names=True):
         import matplotlib.colors as mcolors
-        self.colors = dict(mcolors.BASE_COLORS, **mcolors.CSS4_COLORS)
+        colors_dict = dict(mcolors.BASE_COLORS, **mcolors.CSS4_COLORS)
         dim = self.__fix_dims(dim,is_range=False)
         dim = [range(i) for i in dim]
         if dim == 0:    
             if with_names:
-                result = self.random.choice(list(self.colors.keys()))
+                result = self.random.choice(list(colors_dict.keys()))
             else:
                 result = '#{:06x}'.format(self.random.integers(0, 0xFFFFFF))
         else:
             if len(dim) == 1:
                 if with_names:
-                    result = {key: self.random.choice(list(self.colors.keys())) for key in dim[0]}
+                    result = {key: self.random.choice(list(colors_dict.keys())) for key in dim[0]}
                 else:
                     result = {key: '#{:06x}'.format(self.random.integers(0, 0xFFFFFF)) for key in dim[0]}
             else:
                 if with_names:
-                    result = {key: self.random.choice(list(self.colors.keys())) for key in it.product(*dim)}
+                    result = {key: self.random.choice(list(colors_dict.keys())) for key in it.product(*dim)}
                 else:
                     result = {key: '#{:06x}'.format(self.random.integers(0, 0xFFFFFF)) for key in it.product(*dim)}
         return self.__keep(name, result, neglect)
     
+    def distance(self, name, dim=0, bound=[0, 1], symmetric=True, as_int=False, neglect=False):
+        dim = self.__fix_dims(dim, is_range=False)
+        if as_int:
+            mat = self.random.integers(low=bound[0], high=bound[1] + 1, size=dim)
+        else:
+            mat = self.random.uniform(low=bound[0], high=bound[1], size=dim)
+
+        if symmetric:
+            mat = (mat + mat.T) / 2
+            if as_int:
+                mat = np.round(mat).astype(int)
+        np.fill_diagonal(mat, 0)
+        return self.__keep(name, mat, neglect)
+    
+    def points(
+        self,
+        name,
+        n=0,
+        dim=2,
+        bound=None,
+        geo=False,
+        as_int=False,
+        country=None,
+        city=None,
+        custom_polygon=None,
+        mode="euclidean",
+        max_travel_time=None,
+        max_tries=5,
+        return_distances=False,
+        neglect=False
+    ):
+        try:
+            import numpy as np
+        except ImportError:
+            raise ImportError("NumPy is required. Install via `pip install numpy`.")
+
+        if not isinstance(n, int) or n < 0:
+            raise ValueError(f"`n` must be a nonnegative integer; got {n}.")
+        if not isinstance(dim, int) or dim < 0:
+            raise ValueError(f"`dim` must be a nonnegative integer; got {dim}.")
+
+        allowed_modes = {"walk", "drive", "ship", "train", "air", "euclidean", "manhattan"}
+        if mode not in allowed_modes:
+            raise ValueError(f"`mode` must be one of {allowed_modes}; got '{mode}'.")
+
+        speed_map = {
+            "walk": 5.0,
+            "drive": 60.0,
+            "ship": 30.0,
+            "train": 80.0,
+            "air": 800.0
+        }
+
+        def _haversine_matrix(latlons):
+            R = 6371.0
+            lat = np.radians(latlons[:, 0])[:, None]
+            lon = np.radians(latlons[:, 1])[:, None]
+            dlat = lat - lat.T
+            dlon = lon - lon.T
+            a = (np.sin(dlat / 2))**2 + np.cos(lat) * np.cos(lat.T) * (np.sin(dlon / 2))**2
+            c = 2 * np.arctan2(np.sqrt(a), np.sqrt(1 - a))
+            return R * c
+
+        def _sample_in_shape(n_pts, shape, as_int_flag):
+            try:
+                from shapely.geometry import Point
+            except ImportError:
+                raise ImportError("Shapely is required. Install via `pip install shapely`.")
+            rng = self.random
+            minx, miny, maxx, maxy = shape.bounds
+            pts = []
+            batch = max(n_pts * 3, 100)
+            while len(pts) < n_pts:
+                xs = rng.uniform(minx, maxx, size=batch)
+                ys = rng.uniform(miny, maxy, size=batch)
+                for x, y in zip(xs, ys):
+                    p = Point(x, y)
+                    if shape.contains(p):
+                        pts.append((y, x))
+                        if len(pts) == n_pts:
+                            break
+            arr = np.array(pts, dtype=float)
+            if as_int_flag:
+                arr = np.round(arr).astype(int)
+            return arr
+
+        if not hasattr(self, "_graph_cache"):
+            self._graph_cache = {}
+        if not hasattr(self, "_countries_gdf"):
+            self._countries_gdf = None
+
+        cache_dir = "osm_cache"
+        os.makedirs(cache_dir, exist_ok=True)
+
+        def _network_samples_and_distances(n_pts, city_name, net_mode, as_int_flag):
+            try:
+                import osmnx as ox
+            except ImportError:
+                raise ImportError("OSMnx is required. Install via `pip install osmnx`.")
+            try:
+                import networkx as nx
+            except ImportError:
+                raise ImportError("NetworkX is required. Install via `pip install networkx`.")
+
+            safe_city = city_name.replace(" ", "_").replace(",", "")
+            filename = f"{safe_city}_{net_mode}.graphml"
+            filepath = os.path.join(cache_dir, filename)
+
+            if (city_name, net_mode) in self._graph_cache:
+                G = self._graph_cache[(city_name, net_mode)]
+            elif os.path.isfile(filepath):
+                try:
+                    G = ox.load_graphml(filepath)
+                except Exception:
+                    G = ox.graph_from_place(city_name, network_type=net_mode if net_mode in ("walk", "drive") else "all",
+                                            custom_filter='["route"="ferry"]' if net_mode == "ship" else None)
+                    ox.save_graphml(G, filepath)
+                self._graph_cache[(city_name, net_mode)] = G
+            else:
+                if net_mode in ("walk", "drive"):
+                    G = ox.graph_from_place(city_name, network_type=net_mode)
+                else:
+                    G = ox.graph_from_place(
+                        city_name,
+                        network_type="all",
+                        custom_filter='["route"="ferry"]'
+                    )
+                    if len(G.nodes) == 0:
+                        raise ValueError(f"No ferry/ship routes found in '{city_name}'.")
+                ox.save_graphml(G, filepath)
+                self._graph_cache[(city_name, net_mode)] = G
+
+            rng = self.random
+            all_nodes = list(G.nodes)
+            if n_pts > len(all_nodes):
+                raise ValueError(f"Requested {n_pts} points, but graph has only {len(all_nodes)} nodes.")
+            chosen_nodes = rng.choice(all_nodes, size=n_pts, replace=False)
+
+            latlons = []
+            for node in chosen_nodes:
+                data = G.nodes[node]
+                lat = data.get("y")
+                lon = data.get("x")
+                if lat is None or lon is None:
+                    raise RuntimeError(f"Node {node} lacks 'x'/'y'.")
+                latlons.append((lat, lon))
+            pts_arr = np.array(latlons, dtype=float)
+            if as_int_flag:
+                pts_arr = np.round(pts_arr).astype(int)
+
+            dist_mat = np.zeros((n_pts, n_pts), dtype=float)
+            for i, src in enumerate(chosen_nodes):
+                lengths = nx.single_source_dijkstra_path_length(G, src, weight="length")
+                for j, tgt in enumerate(chosen_nodes):
+                    dist_mat[i, j] = lengths.get(tgt, np.inf)
+            return pts_arr, dist_mat / 1000.0
+
+        def _geo_samples_and_haversine(n_pts, as_int_flag):
+            if city is not None:
+                try:
+                    import osmnx as ox
+                except ImportError:
+                    raise ImportError("OSMnx is required. Install via `pip install osmnx`.")
+                try:
+                    gdf_c = ox.geocode_to_gdf(city)
+                except Exception as e:
+                    raise ValueError(f"OSMnx could not geocode '{city}': {e}")
+                if gdf_c.empty:
+                    raise ValueError(f"City '{city}' not found by OSMnx.")
+                shape = gdf_c.unary_union
+                return _sample_in_shape(n_pts, shape, as_int_flag)
+            if country is not None:
+                try:
+                    import geopandas as gpd
+                except ImportError:
+                    raise ImportError("GeoPandas is required. Install via `pip install geopandas`.")
+                if self._countries_gdf is None:
+                    try:
+                        self._countries_gdf = gpd.read_file(
+                            "https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson"
+                        )
+                    except Exception as e:
+                        raise RuntimeError(f"Failed to load country boundaries. Details: {e}")
+                world = self._countries_gdf
+                cols = world.columns
+                for candidate in ("ADMIN", "admin", "NAME", "name", "Country", "country"):
+                    if candidate in cols:
+                        name_col = candidate
+                        break
+                else:
+                    raise ValueError(f"No country-name column found. Columns: {cols.tolist()}")
+                matches = world[world[name_col].str.lower() == country.lower()]
+                if matches.empty:
+                    sample_names = ", ".join(sorted(world[name_col].unique())[:10]) + ", …"
+                    raise ValueError(f"Country '{country}' not found. Examples: {sample_names}")
+                shape = matches.iloc[0].geometry
+                return _sample_in_shape(n_pts, shape, as_int_flag)
+            if custom_polygon is not None:
+                try:
+                    from shapely.geometry import Polygon, MultiPolygon
+                except ImportError:
+                    raise ImportError("Shapely is required. Install via `pip install shapely`.")
+                if dim != 2:
+                    raise ValueError("custom_polygon requires dim=2.")
+                if not isinstance(custom_polygon, (Polygon, MultiPolygon)):
+                    raise ValueError("custom_polygon must be a Shapely Polygon or MultiPolygon.")
+                return _sample_in_shape(n_pts, custom_polygon, as_int_flag)
+            if geo:
+                if bound is None:
+                    bound_list = [[-90, 90], [-180, 180]]
+                else:
+                    if (
+                        isinstance(bound, (list, tuple))
+                        and len(bound) == 2
+                        and all(np.isscalar(x) for x in bound)
+                    ):
+                        bound_list = [list(bound) for _ in range(2)]
+                    elif (
+                        isinstance(bound, (list, tuple))
+                        and len(bound) == 2
+                        and all(isinstance(axis, (list, tuple)) and len(axis) == 2 for axis in bound)
+                    ):
+                        bound_list = [list(axis) for axis in bound]
+                    else:
+                        raise ValueError("`bound` for geo sampling must be [lat_min, lat_max], [lon_min, lon_max].")
+                lat_min, lat_max = bound_list[0]
+                lon_min, lon_max = bound_list[1]
+                if not (-90 <= lat_min <= 90 and -90 <= lat_max <= 90):
+                    raise ValueError(f"Latitude bounds must lie in [-90,90]. Got [{lat_min},{lat_max}].")
+                if not (-180 <= lon_min <= 180 and -180 <= lon_max <= 180):
+                    raise ValueError(f"Longitude bounds must lie in [-180,180]. Got [{lon_min},{lon_max}].")
+                lats = self.random.uniform(lat_min, lat_max, size=n_pts)
+                lons = self.random.uniform(lon_min, lon_max, size=n_pts)
+                pts_arr = np.column_stack((lats, lons))
+                if as_int_flag:
+                    pts_arr = np.round(pts_arr).astype(int)
+                return pts_arr
+            raise ValueError("Geo sampling requires city, country, custom_polygon, or geo=True.")
+
+        if mode in ("walk", "drive", "ship"):
+            if dim != 2:
+                raise ValueError(f"mode='{mode}' only valid when dim=2.")
+            speed = speed_map[mode]
+            for attempt in range(max_tries):
+                if city:
+                    pts_arr, dist_mat = _network_samples_and_distances(n, city, mode, as_int)
+                else:
+                    pts_arr = _geo_samples_and_haversine(n, as_int)
+                    dist_mat = _haversine_matrix(pts_arr)
+                if max_travel_time is None:
+                    break
+                travel_time = dist_mat / speed
+                if np.all(np.isfinite(travel_time) & (travel_time <= max_travel_time)):
+                    break
+            else:
+                raise ValueError(
+                    f"Could not generate {n} points within {max_travel_time}h by {mode} after {max_tries} tries."
+                )
+            stored = self.__keep(name, pts_arr, neglect)
+            dist_mat = self.__keep(name+"_dist", dist_mat, neglect)
+            if return_distances:
+                return stored, dist_mat
+            return stored
+
+        if mode in ("train", "air"):
+            if dim != 2:
+                raise ValueError(f"mode='{mode}' requires dim=2.")
+            speed = speed_map[mode]
+            for attempt in range(max_tries):
+                pts_arr = _geo_samples_and_haversine(n, as_int)
+                if max_travel_time is not None:
+                    dist_mat = _haversine_matrix(pts_arr)
+                    travel_time = dist_mat / speed
+                    if np.all(np.isfinite(travel_time) & (travel_time <= max_travel_time)):
+                        break
+                else:
+                    break
+            else:
+                raise ValueError(
+                    f"Could not generate {n} points within {max_travel_time}h by {mode} after {max_tries} tries."
+                )
+            stored = self.__keep(name, pts_arr, neglect)
+            if return_distances:
+                dist_mat = _haversine_matrix(pts_arr)
+                dist_mat = self.__keep(name+"_dist", dist_mat, neglect)
+                return stored, dist_mat
+            return stored
+
+        if mode in ("euclidean", "manhattan"):
+            if bound is None:
+                bound_list = [[0, 1]] * dim
+            else:
+                if (
+                    isinstance(bound, (list, tuple))
+                    and len(bound) == 2
+                    and all(np.isscalar(x) for x in bound)
+                ):
+                    bound_list = [list(bound) for _ in range(dim)]
+                elif (
+                    isinstance(bound, (list, tuple))
+                    and len(bound) == dim
+                    and all(isinstance(axis, (list, tuple)) and len(axis) == 2 for axis in bound)
+                ):
+                    bound_list = [list(axis) for axis in bound]
+                else:
+                    raise ValueError(f"`bound` must be [low, high] or list of length {dim} of [low_i, high_i].")
+            for i, (low_i, high_i) in enumerate(bound_list):
+                if not (np.isscalar(low_i) and np.isscalar(high_i)):
+                    raise ValueError(f"`bound[{i}]` values must be numeric; got {bound_list[i]}.")
+                if low_i > high_i:
+                    raise ValueError(f"`bound[{i}] = [{low_i},{high_i}]` invalid: min > max.")
+            for attempt in range(max_tries):
+                pts_arr = np.empty((n, dim), dtype=float)
+                for i in range(dim):
+                    low_i, high_i = bound_list[i]
+                    pts_arr[:, i] = self.random.uniform(low_i, high_i, size=n)
+                if as_int:
+                    pts_arr = np.round(pts_arr).astype(int)
+                if max_travel_time is not None:
+                    if mode == "euclidean":
+                        diff = pts_arr[:, None, :] - pts_arr[None, :, :]
+                        dist_mat = np.sqrt((diff**2).sum(axis=2))
+                    else:
+                        diff = pts_arr[:, None, :] - pts_arr[None, :, :]
+                        dist_mat = np.abs(diff).sum(axis=2)
+                    travel_time = dist_mat
+                    if np.all(np.isfinite(travel_time) & (travel_time <= max_travel_time)):
+                        break
+                else:
+                    break
+            else:
+                raise ValueError(
+                    f"Could not generate {n} points within {max_travel_time}h by {mode} after {max_tries} tries."
+                )
+            stored = self.__keep(name, pts_arr, neglect)
+            if return_distances:
+                if mode == "euclidean":
+                    diff = pts_arr[:, None, :] - pts_arr[None, :, :]
+                    dist_mat = np.sqrt((diff**2).sum(axis=2))
+                else:
+                    diff = pts_arr[:, None, :] - pts_arr[None, :, :]
+                    dist_mat = np.abs(diff).sum(axis=2)
+                    dist_mat = self.__keep(name+"_dist", dist_mat, neglect)
+                return stored, dist_mat
+            return stored
+
+        raise RuntimeError(f"Unhandled mode '{mode}'.")
+
     def sample(self, name, init, size, replace=False, sort_result=False, reset_index=False, return_indices=False, axis=None, neglect=False):
 
         type_is= type(init)
