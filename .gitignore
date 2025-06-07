@@ -34,5 +34,7 @@ backups/
 workflows/
 mytests/
 release*
-publish.py
+publish*.py
 README_MAIN.md
+cache*
+*cache
