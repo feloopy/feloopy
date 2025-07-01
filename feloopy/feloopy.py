@@ -6372,28 +6372,23 @@ class search(model,Implement):
         self.report_status(style=style)
         self.report_specs (style=style, width=width, skip_system_information=skip_system_information)
         self.report_model (style=style, width=width)
-        self.report_formulation(style=style)
+        if full: self.report_formulation(style=style)
         self.report_data(style=style)
-        self.report_lp_insights(style=style)  
+        if full: self.report_lp_insights(style=style)
         self.report_metrics(style=style)
         self.report_debug(style=style)
         self.report_decision(style=style, key_vars=self.key_vars, show_elements=show_elements, width=width, skip=skip)
         self.report_sensitivity(style=style)
         self.report_benchmark(style=style)
 
-
     def save_io(self,name,extra=None):
-
         dt = data_toolkit(key=0)
         if type(self.inputdata)==dict:
             dt.data["inputs"] = self.inputdata
         else:
             dt.data["inputs"] = self.inputdata.data
         dt.data["outputs"] = self.solutions
-
-        if extra:
-            dt.data["extra"] = extra
-
+        if extra: dt.data["extra"] = extra
         dt.save(name=name)
 
     def get_density(self):
