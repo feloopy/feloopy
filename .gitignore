@@ -35,6 +35,8 @@ workflows/
 mytests/
 release*
 publish*.py
+publish-doc.py
+write-doc.ipynb
 README_MAIN.md
 cache*
 *cache

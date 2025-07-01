@@ -8,21 +8,27 @@ def product(iterable):
     return mt.prod(iterable)
 
 def count_variable(variable_dim, total_count, special_count):
-    
     total_count[0] += 1
     special_count[0] += 1
-    if variable_dim == 0:
 
-        count = 1 
-        
+    if variable_dim == 0:
+        count = 1
+    elif isinstance(variable_dim, int):
+        count = variable_dim
+    elif isinstance(variable_dim, set):
+        count = len(variable_dim)
     else:
-        if isinstance(variable_dim,set):
-            count = len(variable_dim)
-        else:
-            count = product(len(dims) for dims in variable_dim)
-    
+        try:
+            count = product(
+                len(dims) if not isinstance(dims, int) else 1
+                for dims in variable_dim
+            )
+        except Exception as e:
+            raise ValueError(f"Invalid element in variable_dim: {e}")
+
     special_count[1] += count
     total_count[1] += count
+
     return total_count, special_count
 
 def update_variable_features(name, variable_dim, variable_bound, variable_counter_type, features):

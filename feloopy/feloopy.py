@@ -11,7 +11,9 @@ import time
 import warnings
 import concurrent.futures
 
-from typing import Literal, Optional, Union
+from typing import Literal, Optional
+from joblib import Parallel, delayed
+from typing import Callable, Any, Tuple, Union
 from contextlib import suppress,redirect_stdout
 import timeit
 import numpy as np
@@ -814,6 +816,7 @@ class model(
         self.no_agents = no_agents
         self.scenario_ids = scenario_ids
         self.constraint_ids = constraint_ids
+        self.decoder = None
 
         if self.method in ["constraint", "convex", "uncertain"]:
             self.method_was = self.method
@@ -1191,7 +1194,7 @@ class model(
                     self.current_ave = [ np.inf for i in range(len(directions))]
                     self.current_std = [ np.inf for i in range(len(directions))]
                     
-                    if len(self.current_min)==1:
+                    if len(self.current_min)==1 and self.features["agent_status"] != 'feasibility_check':
                         self.current_min = self.current_min[0]
                         self.current_max = self.current_max[0]
                         self.current_ave = np.inf
@@ -1202,43 +1205,31 @@ class model(
                     if self.features['penalty_coefficient'] == 0 and len(self.features['constraints']) != 0:
                         raise ValueError(f"'penalty_coefficient' must be greater than zero for constrained environments.")
                     
-                    if self.features['vectorized']:
-                        
+                    if self.features['vectorized']:    
                         if self.features['interface_name']=='feloopy':
-
                             self.penalty = np.zeros(np.shape(self.agent)[0])
-                            
-                                
-                                
                             if self.features['penalty_coefficient'] != 0 and len(self.features['constraints']) == 1:
-
                                 self.features['constraints'][0] = np.reshape(
                                     self.features['constraints'][0], [np.shape(self.agent)[0], 1])
                                 self.features['constraints'].append(
                                     np.zeros(shape=(np.shape(self.agent)[0], 1)))
                                 self.penalty = np.amax(np.concatenate(
                                     self.features['constraints'], axis=1), axis=1)
-
                                 self.agent[np.where(self.penalty == 0), -2] = 1
                                 self.agent[np.where(self.penalty > 0), -2] = -1
 
                             if self.features['penalty_coefficient'] != 0 and len(self.features['constraints']) > 1:
-
                                 self.features['constraints'].append(
                                     np.zeros(shape=(np.shape(self.agent)[0], 1)))
                                 self.penalty = np.amax(np.concatenate(
                                     self.features['constraints'], axis=1), axis=1)
                                 self.agent[np.where(self.penalty == 0), -2] = 1
                                 self.agent[np.where(self.penalty > 0), -2] = -1
-
                             else:
-
                                 self.agent[:, -2] = 2
 
                             if type(obj_id) != str:
-                                
                                 term = np.reshape(self.features['objectives'][obj_id], [self.agent.shape[0],])
-
                                 if directions[obj_id] == 'max':
                                     self.agent[:, -1] = term - np.reshape(
                                         self.features['penalty_coefficient'] * (self.penalty)**2, [self.agent.shape[0],])
@@ -1246,31 +1237,27 @@ class model(
                                     self.agent[:, -1] = term + np.reshape(
                                         self.features['penalty_coefficient'] * (self.penalty)**2, [self.agent.shape[0],])
 
-                                self.current_min = np.min(self.agent[:, -1])
-                                self.current_max = np.max(self.agent[:, -1])
-                                self.current_ave = np.mean(self.agent[:, -1])
-                                self.current_std = np.std(self.agent[:, -1])
+                                if self.features["agent_status"] !=  'feasibility_check': 
+                                    self.current_min = np.min(self.agent[:, -1])
+                                    self.current_max = np.max(self.agent[:, -1])
+                                    self.current_ave = np.mean(self.agent[:, -1])
+                                    self.current_std = np.std(self.agent[:, -1])
 
                             else:
-
                                 self.agent[:, -1] = 0
-
                                 total_obj = self.features['objective_counter'][0]
-                                
                                 self.features['objectives'] = np.array(self.features['objectives']).T
-
                                 for i in range(self.features['objective_counter'][0]):
-
                                     if directions[i] == 'max':
                                         self.agent[:, -2-total_obj+i] = self.features['objectives'][:,i] - self.features['penalty_coefficient'] * (self.penalty)**2
-
                                     if directions[i] == 'min':
                                         self.agent[:, -2-total_obj+i] = self.features['objectives'][:,i] + self.features['penalty_coefficient'] * (self.penalty)**2
-
-                                self.current_min = np.min(self.agent[:, -2-total_obj:-2], axis = 0)
-                                self.current_max = np.max(self.agent[:, -2-total_obj:-2], axis = 0)
-                                self.current_ave = np.mean(self.agent[:, -2-total_obj:-2], axis =0)
-                                self.current_std = np.std(self.agent[:, -2-total_obj:-2], axis = 0)
+                                
+                                if self.features["agent_status"] !=  'feasibility_check': 
+                                    self.current_min = np.min(self.agent[:, -2-total_obj:-2], axis = 0)
+                                    self.current_max = np.max(self.agent[:, -2-total_obj:-2], axis = 0)
+                                    self.current_ave = np.mean(self.agent[:, -2-total_obj:-2], axis =0)
+                                    self.current_std = np.std(self.agent[:, -2-total_obj:-2], axis = 0)
 
                         else:
 
@@ -1294,25 +1281,33 @@ class model(
 
                                 if directions[obj_id] == 'min':
                                     self.sing_result = np.reshape(self.features['objectives'][obj_id], [self.agent.shape[0],]) + np.reshape(self.features['penalty_coefficient'] * (self.penalty)**2, [self.agent.shape[0],])
-
-                                self.current_min = np.min(self.sing_result)
-                                self.current_max = np.max(self.sing_result)
+                                
+                                if self.features["agent_status"] !=  'feasibility_check': 
+                                    self.current_min = np.min(self.sing_result)
+                                    self.current_max = np.max(self.sing_result)
                                 
                             else:
 
                                 total_obj = self.features['objective_counter'][0]
-
                                 self.sing_result = []
-                                
-                                for i in range(self.features['objective_counter'][0]):
+                            
+                                n_objs = int(self.features['objective_counter'][0])
 
+                                for i in range(n_objs):
+                                    obj = np.array(self.features['objectives'][i])
+                                    pen = np.array(self.features['penalty_coefficient']) * (np.array(self.penalty) ** 2)
+                                    if obj.ndim == 2 and obj.shape[1] == 1 and pen.ndim == 1:
+                                        pen = pen[:, np.newaxis]
+                                    elif obj.ndim == 1 and pen.ndim == 2 and pen.shape[1] == 1:
+                                        pen = pen.ravel()
                                     if directions[i] == 'max':
-                                        self.sing_result.append(self.features['objectives'][i] - self.features['penalty_coefficient'] * (self.penalty)**2)
-
-                                    if directions[i] == 'min':
-                                        self.sing_result.append(self.features['objectives'][i] + self.features['penalty_coefficient'] * (self.penalty)**2)
-                                self.current_min = np.min(np.array(self.sing_result), axis = 0)
-                                self.current_max = np.max(np.array(self.sing_result), axis = 0)
+                                        result_i = obj - pen
+                                    else:
+                                        result_i = obj + pen
+                                    self.sing_result.append(result_i)
+                                if self.features["agent_status"] !=  'feasibility_check': 
+                                    self.current_min = np.min(np.array(self.sing_result), axis = 0)
+                                    self.current_max = np.max(np.array(self.sing_result), axis = 0)
 
                     else:
 
@@ -1333,9 +1328,9 @@ class model(
                                 self.response = self.features['objectives'][obj_id] + \
                                     self.features['penalty_coefficient'] * \
                                     (self.penalty-0)**2
-
-                            self.current_min = np.min(self.response)
-                            self.current_max = np.max(self.response)
+                            if self.features["agent_status"] !=  'feasibility_check': 
+                                self.current_min = np.min(self.response)
+                                self.current_max = np.max(self.response)
 
                         else:
 
@@ -1356,9 +1351,9 @@ class model(
                                     self.response[i] = self.features['objectives'][i] + \
                                         self.features['penalty_coefficient'] * \
                                         (self.penalty)**2
-                        
-                            self.current_min = np.min(np.array(self.response), axis = 0)
-                            self.current_max = np.max(np.array(self.response), axis = 0)
+                            if self.features["agent_status"] !=  'feasibility_check': 
+                                self.current_min = np.min(np.array(self.response), axis = 0)
+                                self.current_max = np.max(np.array(self.response), axis = 0)
 
     def healthy(self):
         try:
@@ -2663,6 +2658,115 @@ end
         else:
             self.features["jlcode_data"]=code
 
+
+    def decode(
+        self,
+        decoder: Callable[..., Union[Any, Tuple[Any, ...]]],
+        *encoded_arrays: np.ndarray,
+        n_jobs: int = 1,
+        verbose: bool = False,
+        vectorized: bool = False,
+        batch_axis: Union[int, None] = 0,
+        static_args: Tuple = ()
+    ) -> Union[np.ndarray, Tuple[np.ndarray, ...]]:
+        
+        self.decoder = decoder
+
+        arrays = [np.asarray(arr) for arr in encoded_arrays]
+
+        if vectorized:
+            try:
+                result = decoder(*arrays, *static_args)
+            except Exception as e:
+                raise RuntimeError(f"Vectorized decoder call failed: {e}") from e
+            if not isinstance(result, tuple):
+                result = (result,)
+            outputs = tuple(np.asarray(r) for r in result)
+            return outputs[0] if len(outputs) == 1 else outputs
+
+        if batch_axis is None:
+            try:
+                result = decoder(*arrays, *static_args)
+            except Exception as e:
+                raise RuntimeError(f"Non-batched decoder call failed: {e}") from e
+            if not isinstance(result, tuple):
+                result = (result,)
+            outputs = tuple(np.asarray(r) for r in result)
+            return outputs[0] if len(outputs) == 1 else outputs
+
+        moved = [np.moveaxis(arr, batch_axis, 0) for arr in arrays]
+        lengths = [arr.shape[0] for arr in moved]
+        if len(set(lengths)) != 1:
+            raise ValueError(f"Mismatched batch sizes along axis {batch_axis}: {lengths}")
+
+        row_args = list(zip(*moved))
+
+        def _safe_decode(args, idx=None):
+            try:
+                res = decoder(*args, *static_args)
+            except Exception as e:
+                if idx is not None:
+                    raise RuntimeError(f"Decoder failed at row {idx}: {e}") from e
+                raise
+            if not isinstance(res, tuple):
+                res = (res,)
+            return res
+
+        if n_jobs == 1:
+            results = [_safe_decode(args, idx) for idx, args in enumerate(row_args)]
+        else:
+            results = Parallel(n_jobs=n_jobs, verbose=int(verbose), backend='threading')(
+                delayed(_safe_decode)(args, idx) for idx, args in enumerate(row_args)
+            )
+
+        if not results:
+            return ()
+
+        m = len(results[0])
+        for idx, res in enumerate(results):
+            if len(res) != m:
+                raise RuntimeError(f"Output length mismatch at row {idx}: expected {m}, got {len(res)}")
+
+        unzipped = zip(*results)
+        stacked = tuple(np.stack(group, axis=0) for group in unzipped)
+        return stacked[0] if len(stacked) == 1 else stacked
+
+    def rget(self, param, *index_sets, mode='auto'):
+        from collections import OrderedDict
+        ndim = len(index_sets)
+        if isinstance(mode, str):
+            mode = [mode] * ndim
+        else:
+            assert len(mode) == ndim, "Mode list must match number of dimensions"
+        remapped_indices = []
+        for dim_indices, m in zip(index_sets, mode):
+            dim_indices = np.asarray(dim_indices)
+            if m == 'auto':
+                is_normal = (
+                    np.issubdtype(dim_indices.dtype, np.integer) and
+                    np.array_equal(np.sort(np.unique(dim_indices)), np.arange(len(dim_indices)))
+                )
+                m = 'raw' if is_normal else 'unique'
+
+            if m == 'unique':
+                unique_vals = list(OrderedDict.fromkeys(dim_indices))
+                val_to_idx = {v: i for i, v in enumerate(unique_vals)}
+                remapped = np.array([val_to_idx[v] for v in dim_indices])
+            elif m == 'strict':
+                remapped = np.arange(len(dim_indices))
+            elif m == 'raw':
+                remapped = dim_indices
+            else:
+                raise ValueError(f"Invalid mode: {m}")
+            remapped_indices.append(remapped)
+        if isinstance(param, np.ndarray):
+            return param[tuple(remapped_indices)]
+        elif isinstance(param, dict):
+            keys = list(zip(*remapped_indices))
+            return [param[k] for k in keys]
+        else:
+            raise TypeError("param must be either numpy.ndarray or dict")
+
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 class Implement:
@@ -2695,6 +2799,7 @@ class Implement:
         self.VariablesType = self.model_data.features['variable_type']
         self.ObjectiveBeingOptimized = self.model_data.features['objective_being_optimized']
         self.VariablesDim = self.model_data.features['variable_dim']
+        self.decoder = getattr(getattr(self, "model_data", None), "decoder", None)
         self.status = 'Not solved'
         self.response = None
         self.AgentProperties = [None, None, None, None]
@@ -2703,7 +2808,6 @@ class Implement:
         self.search = self.solve = self.optimize = self.run = self.sol
         self.get_tensor = self.get_numpy_var
         self.PI = self.pi = np.pi
-
         
         match self.interface_name:
 
@@ -2819,7 +2923,6 @@ class Implement:
                 from .generators.solution import feloopy_solution_generator
                 self.BestAgent, self.BestReward, self.start, self.end, self.status = feloopy_solution_generator.generate_solution(
                     self.ModelObject, self.Fitness, self.tot_counter, self.objectives_directions, self.ObjectiveBeingOptimized, number_of_times, show_plots, show_log)
-
 
     def dis_plots(self, ideal_pareto: Optional[np.ndarray] = [], step: Optional[tuple] = (0.1,)):
 
@@ -3442,10 +3545,12 @@ class Implement:
                                         return var(*i[1])
 
                                 case 'bvar':
+                                
                                     if self.VariablesDim[i[0]] == 0:
                                         return np.int64(np.round(self.VariablesBound[i[0]][0] + self.BestAgent[self.VariablesSpread[i[0]][0]:self.VariablesSpread[i[0]][1]] * (self.VariablesBound[i[0]][1] - self.VariablesBound[i[0]][0])))
 
                                     else:
+
                                         def var(*args):
                                             self.NewAgentProperties = np.round(self.VariablesBound[i[0]][0] + self.BestAgent[self.VariablesSpread[i[0]][0]:self.VariablesSpread[i[0]][1]] * (
                                                 self.VariablesBound[i[0]][1] - self.VariablesBound[i[0]][0]))
@@ -3900,7 +4005,7 @@ class Implement:
         for i in self.VariablesDim.keys():
             if i == var_name:
                 if self.VariablesDim[i] == 0:
-                    output.append(self.get([i, (0,)]))
+                    output = self.get([i, (0,)])
                 elif len(self.VariablesDim[i]) == 1:
                     for k in fix_dims(self.VariablesDim[i])[0]:
                         output.append(self.get([i, (k,)]))
@@ -5024,6 +5129,7 @@ class search(model,Implement):
         key_vars = [],
         scenarios = [],
         benchmark=None,
+        decoder=None,
         repeat=1,
         verbose=False,
         progress=False,
@@ -5075,6 +5181,7 @@ class search(model,Implement):
         self.repeat = repeat
         self.progress = progress
         self.mgt = 0
+        self.decoder = decoder
         self.track_history = track_history
 
         if self.method!= "madm":
@@ -5082,7 +5189,7 @@ class search(model,Implement):
             self.number_of_objectives = len(self.directions)
         
         start = timeit.default_timer()
-        self.create_env(environment)
+        self.create_env(environment, verbose=self.verbose)
         end = timeit.default_timer()
         self.mgt+=end-start
 
@@ -5121,8 +5228,11 @@ class search(model,Implement):
         os.system(command)
         self.report(**kwargs)
         
-    def create_env(self, environment):
+    def create_env(self, environment, verbose):
         
+        if not verbose:
+            start_progress(message="Generating...", spinner="dots")
+
         self.penalty_coefficient=self.options.get("penalty_coefficient",0)
         #if "penalty_coefficient" in self.options.keys():
         #    del self.options["penalty_coefficient"]
@@ -5140,17 +5250,16 @@ class search(model,Implement):
                 if self.track_history:
                     self.lb_record = []
                     self.ub_record = []
-                
                     if self.interface == "feloopy":
                         self.ave_record = []
                         self.std_record = []
-                
+
                 def instance(X):
                     
                     lm = model(method=self.method, name=self.name, interface=self.interface, agent=X, no_agents=self.options.get("pop_size", 50))
                     lm = environment(lm, *self.args, **self.kwargs)
                     lm.sol(directions=self.directions,solver=self.solver,show_log=self.verbose, solver_options=self.options)
-                    if self.track_history:
+                    if self.track_history and lm.features["agent_status"] !=  'feasibility_check':
                         self.lb_record.append(lm.current_min)
                         self.ub_record.append(lm.current_max)
                         if self.interface == "feloopy":
@@ -5163,9 +5272,9 @@ class search(model,Implement):
             else:
 
                 if self.track_history:
+
                     self.lb_record = []
                     self.ub_record = []
-                
                     if self.interface == "feloopy":
                         self.ave_record = []
                         self.std_record = []
@@ -5174,19 +5283,21 @@ class search(model,Implement):
                     m = model(self.name,self.method, self.interface,X, no_agents=self.options.get("pop_size", 50))
                     m = self.environment(m, *self.args, **self.kwargs)
                     m.sol(self.directions, self.solver, self.options, obj_id='all')
-                    if self.track_history:
+                    if self.track_history and m.features["agent_status"] != 'feasibility_check':
                         self.lb_record.append(m.current_min)
                         self.ub_record.append(m.current_max)
                         if self.interface == "feloopy":
                             self.ave_record.append(m.current_ave)
                             self.std_record.append(m.current_std)
                     return m[X]
-
                 self.em = implement(instance)
 
         if self.method in ["madm"]:
             self.em = madm(self.solver,self.name, self.interface)
             self.em = self.environment(self.em, *self.args, **self.kwargs)
+
+        if not verbose:
+            end_progress(success_message="√ Generated")
 
     def healthy(self):
         return self.em.healthy()
@@ -5224,7 +5335,6 @@ class search(model,Implement):
                             
                             for i in range(1, self.options["epoch"]):
                                 pop_fit_per_epoch = self.ub_record[i * self.options["pop_size"]:(i + 1) * self.options["pop_size"]]
-                                
                                 max_current = np.max(pop_fit_per_epoch)
                                 min_current = np.min(pop_fit_per_epoch)
                                 ave_current = np.mean(pop_fit_per_epoch)
@@ -5373,29 +5483,35 @@ class search(model,Implement):
                     
                     if self.method not in ["heuristic"]:
                         self.solutions = self.result[3]
-
                     else:
                         num_pareto = self.em.get_obj().shape[0]
-                        self.solutions = {i: {} for i in range(num_pareto)}
+                        self.solutions = [ {} for i in range(num_pareto)]
                         for i in range(num_pareto):
                             for j in self.em.VariablesDim.keys():
                                 if self.em.VariablesType[j] in ["pvar", "fvar"]:
                                     self.solutions[i][j] = self.em.VariablesBound[j][0] + self.em.BestAgent[i,self.em.VariablesSpread[j][0]:self.em.VariablesSpread[j][1]] * (self.em.VariablesBound[j][1] - self.em.VariablesBound[j][0])
                                 elif self.em.VariablesType[j] in ["bvar", "ivar"]:
-                                    self.solutions[i][j] = np.array(self.em.VariablesBound[j][0] + self.em.BestAgent[i,self.em.VariablesSpread[j][0]:self.em.VariablesSpread[j][1]] * (self.em.VariablesBound[j][1] - self.em.VariablesBound[j][0]),dtype=np.int64)
+                                    self.solutions[i][j] = np.int64(np.round(np.array(self.em.VariablesBound[j][0] + self.em.BestAgent[i,self.em.VariablesSpread[j][0]:self.em.VariablesSpread[j][1]] * (self.em.VariablesBound[j][1] - self.em.VariablesBound[j][0]))))
                                 elif self.em.VariablesType[j] in ["svar"]:
                                     self.solutions[i][j] = np.argsort(self.em.VariablesBound[j][0] + self.em.BestAgent[i,self.em.VariablesSpread[j][0]:self.em.VariablesSpread[j][1]] * (self.em.VariablesBound[j][1] - self.em.VariablesBound[j][0]))
                 
-                            if self.em.VariablesDim[j] == 0:
-                                pass
+                                if self.em.VariablesDim[j] == 0:
+                                    try:
+                                        self.solutions[i][j] = self.solutions[i][j][0]
+                                    except:
+                                        pass
+                                elif len(self.em.VariablesDim[j]) == 1:
+                                    pass
+                                else:
+                                    self.solutions[i][j] = np.array(self.solutions[i][j]).reshape([len(element) if not isinstance(element, int) else element for element in fix_dims(self.em.VariablesDim[j])])
+                                
+                            for decoder in (getattr(self, "decoder", None), getattr(getattr(self, "em", None), "decoder", None)):
+                                if decoder:
+                                    _, output_features = get_in_out(decoder, self.solutions[i])
+                                    self.solutions[i].update(output_features)
 
-                            elif len(self.em.VariablesDim[j]) == 1:
-                                pass
-                            else:
-                                self.solutions[i][j] = np.array(self.solutions[i][j]).reshape([len(element) if not isinstance(element, int) else element for element in fix_dims(self.em.VariablesDim[j])])
 
                 else:
-                    
                     self.solutions = {}
                     if self.method not in ["heuristic"]:
                         for typ, var in self.em.features['variables'].keys():
@@ -5403,6 +5519,12 @@ class search(model,Implement):
                     else:
                         for j in self.em.VariablesDim.keys():
                             self.solutions[j] = self.em.get_numpy_var(j)
+                        for decoder in (getattr(self, "decoder", None), getattr(getattr(self, "em", None), "decoder", None)):
+                            if decoder:
+                                _, output_features = get_in_out(decoder, self.solutions)
+                                self.solutions.update(output_features)
+                                print(self.solutions)
+
             else:
                 values_list = [
                         'rv', 
@@ -5482,10 +5604,26 @@ class search(model,Implement):
         if not verbose:    
             end_progress(success_message="√ Searched")
 
-    def get(self,input=None):
-        
-        if type(input)==str:
+    def get(self, input=None):
+
+        if not isinstance(input, str):
+            raise TypeError(f"Expected 'input' to be a string, got {type(input).__name__}")
+        if hasattr(self, "solutions"):
+            if isinstance(self.solutions, list):
+                
+                return [
+                    item.get(input)
+                    for item in self.solutions
+                    if isinstance(item, dict) and item.get(input) is not None
+                ]
+            elif isinstance(self.solutions, dict):
+                return self.solutions.get(input)
+            else:
+                raise TypeError(f"'solutions' must be a list or dict, got {type(self.solutions).__name__}")
+        elif hasattr(self, "em") and hasattr(self.em, "get_tensor"):
             return self.em.get_tensor(input)
+        else:
+            raise AttributeError("'self' has neither 'solutions' nor a valid 'em.get_tensor' method")
 
     def get_obj(self):
         if self.number_of_objectives==1:
@@ -5495,13 +5633,13 @@ class search(model,Implement):
                 return self.em.get_obj()
             else:
                 return self.result[0]
-                
+
     def get_dual(self,input):
         return self.em.get_dual(input)
 
     def get_slack(self,input):
         return self.em.get_slack(input)
-      
+
     def sensitivity(self, dataset, parameter_names, parameter_values, environment=None,control_scenario=0):
         
         from .operators.metrics import compute_similarity
@@ -5542,7 +5680,10 @@ class search(model,Implement):
                 for parameter_value in parameter_values[parameter_names.index(parameter_name)]:
                     result_dataset.data[f"sensitivtiy_values_{parameter_name}"].append(parameter_value)
                     dataset.data[parameter_name] = parameter_value
-                    self.create_env(environment)
+                    
+                    
+                    
+                    self.create_env(environment,verbose=self.verbose)
                     
                     
                     with suppress(Exception):
@@ -5691,7 +5832,6 @@ class search(model,Implement):
                         for val in flatten_value(v))
         return False
 
-
     def benchmark(self, environment=None, algorithms=None, repeat=1, show_report=False):
 
         if environment is None:
@@ -5711,7 +5851,7 @@ class search(model,Implement):
             times = []
             try:
                 for _ in range(repeat):
-                    self.create_env(environment)
+                    self.create_env(environment, verbose=self.verbose)
                     with suppress(Exception):
                         self.run(verbose=self.verbose)
                     objs.append(self.em.get_obj())
@@ -5754,78 +5894,78 @@ class search(model,Implement):
         os.system(command)
         self.report(**kwargs)
 
-    def report(self, skip_system_information=True, show_elements=False, width=90,style=1,skip=False,full=False):
-        
-        # First box: FelooPy
-        #print()
-        from colorama import init, Fore
-        init(autoreset=True)
-
-        phealthy = "Unknown"
-
-        if self.em.healthy() or self.method=="madm" or self.sensitivity_analyzed or (self.number_of_objectives!=1 and len(self.solutions)!=0):
-            phealthy = f"{Fore.GREEN}{'√ Healthy'}"
-        
-            if self.inputdata:
-                
-                if type(self.inputdata)!=dict:
-                    
-                    
-
-                
-                    self.dataset_size = self.inputdata.size
-                    self.big_m_value   = self.inputdata.possible_big_m
-                    self.epsilon_value = self.inputdata.possible_epsilon 
-                
-                    if self.method in ["exact"]:
-
-                        bvar_ok = self.is_value_unreliable(self.solutions, [0,1], self.em.features, "bvar")
-                        ivar_ok = self.is_value_unreliable(self.solutions, [0,self.big_m_value], self.em.features, "ivar")
-                        pvar_ok = self.is_value_unreliable(self.solutions, [0,self.big_m_value], self.em.features, "pvar")
-                        fvar_ok = self.is_value_unreliable(self.solutions, [-self.big_m_value,self.big_m_value], self.em.features, "fvar")
-                    
-                    else:
-
-                        bvar_ok = ivar_ok = pvar_ok = fvar_ok = False
-                    
-                    #print(bvar_ok, ivar_ok, pvar_ok, fvar_ok)
-                    if bvar_ok or ivar_ok or pvar_ok or fvar_ok:
-                        phealthy+="\n"+f"{Fore.MAGENTA}{'X Unreliable'}"
-                    else:
-                        pass
-
-                    if self.method in ["exact"]:
-                        bvar_ok = self.is_value_impresice(self.solutions, [0,1], self.em.features, "bvar")
-                    else:
-                        bvar_ok = ivar_ok = pvar_ok = fvar_ok = False
-                    
-                    if not bvar_ok:
-                        pass
-                    else:    
-                        phealthy+="\n"+f"{Fore.YELLOW}{'X Imprecise'}"                
-
-        
-        else:
-            phealthy = f"{Fore.RED}{'X Unhealthy'}"
-
-        print(phealthy)
-        print()
-        
+    def report_decision(self, style=1, key_vars=[], show_elements=False, width=90, skip=False):
+        self.key_vars = key_vars
         box = report(width=width, style=style)
-    
+
+        if self.method != 'madm':
+            right_text = "Zeros not reported!" if show_elements and self.healthy() else "" if self.healthy() else "Indecisive"
+            box.top(left="Decision", right=right_text)
+
+            try:
+                if self.method == "constraint":
+                    box.empty()
+                    self.em.decision_information_print(
+                        self.em.status,
+                        show_tensors=False,
+                        show_detailed_tensors=False,
+                        box_width=width - 2
+                    )
+                    box.empty()
+                    box.bottom()
+                    return
+
+                if self.number_of_objectives == 1:
+                    for key in self.solutions:
+                        if not key_vars or key in key_vars:
+                            box.empty()
+                            if show_elements:
+                                box.print_element(key, self.solutions[key])
+                            else:
+                                box.print_tensor(key, self.solutions[key])
+                else:
+                    box.empty()
+                    for i in range(self.objective_values.shape[0]):
+                        if not skip or i % skip == 0:
+                            box.row(
+                                left=f"ALT {i}",
+                                right=' '.join(format_string(j, ensure_length=True) for j in self.objective_values[i]),
+                                fill_char=True,
+                            )
+                            box.empty()
+                            for key in self.solutions[i]:
+                                if not key_vars or key in key_vars:
+                                    if show_elements:
+                                        box.print_element(key, self.solutions[i][key])
+                                    else:
+                                        box.print_tensor(key, self.solutions[i][key])
+                        if i != self.objective_values.shape[0] - 1:
+                            box.empty()
+
+                box.empty()
+                box.bottom()
+            except:
+                box.empty()
+                box.empty()
+                box.bottom()
+        else:
+            self.em.show_tensor = not show_elements
+            self.em.show_detailed_tensors = False
+            self.em.output_decimals = 4
+            self.em._generate_decision_info()
+
+    def report_specs(self, style=1, width=90, skip_system_information=False):
+
+        box = report(width=width, style=style)
         import datetime
         current_datetime = datetime.datetime.now()
         formatted_date = current_datetime.strftime("%Y-%m-%d")
         formatted_time = current_datetime.strftime("%H:%M:%S")
-
-
         box.top(left=f"FelooPy v{__version__}", right=f"Released {__release_month__} {__release_year__}")
         box.empty()
-        
         box.clear_columns(list_of_strings=["", f"Interface: {self.interface}"], label=f"Date: {formatted_date}", max_space_between_elements=4)
         box.clear_columns(list_of_strings=["", f"Solver: {self.solver}"], label=f"Time: {formatted_time}", max_space_between_elements=4)
         box.clear_columns(list_of_strings=["",f"Method: {self.method}"], label= f"Name: {self.name}", max_space_between_elements=4)
-        
         if self.method in ["exact", "convex", "constraint", "uncertain","heuristic"]:
             if self.number_of_objectives==1:
                 ptype = "single-objective"
@@ -5835,7 +5975,6 @@ class search(model,Implement):
                 ptype = "many-objective"
         else:
             ptype="multi-attribute"
-        
         try:
             if len(self.em.solver_options) >= 1:
                 pconfigurated = "√ Configured"
@@ -5849,18 +5988,16 @@ class search(model,Implement):
                     pconfigurated = "X Unconfigured"
             except:
                 pconfigurated = "N/A"
-    
         import platform
         import psutil
         import cpuinfo
         import GPUtil
-
-        def get_system_characteristics():
-            
-            # OS
+        def get_system_characteristics(width=80):
             os_name = platform.system()
             if os_name == "Windows":
-                os_info = f"Windows {platform.release()}"
+                release, version, _, _ = platform.win32_ver()
+                build = int(version.split(".")[2]) if version and len(version.split(".")) >= 3 else 0
+                os_info = "Windows 11" if release == "10" and build >= 22000 else f"Windows {release}"
             elif os_name == "Linux":
                 os_info = f"Linux {platform.release()}"
             elif os_name == "Darwin":
@@ -5868,35 +6005,63 @@ class search(model,Implement):
             else:
                 os_info = f"{os_name} {platform.release()}"
 
-            # RAM
-            ram_gb = int(np.round(psutil.virtual_memory().total / (1024.0 ** 3)))
-            
-            # CPU
-            cpu = cpuinfo.get_cpu_info()['brand_raw']
-            cpu_brand = "AMD" if "AMD" in cpu else "Intel"
-            cpu_spec = ' '.join(cpu.split()[1:4]).replace("(R)", "").replace("(TM)", "").split("@")[0].strip()
-            
-            # GPU
-            gpu_list = []
-            for gpu in GPUtil.getGPUs():
-                if "intel" in gpu.name.lower():
-                    gpu_list.append(f"Intel ({gpu.name.split('Graphics')[0].strip()} Graphics)")
+            ci = cpuinfo.get_cpu_info()
+            arch_raw = ci.get('arch_string_raw', '') or ci.get('arch', '')
+            arch_l = arch_raw.lower()
+            if 'arm' in arch_l:
+                arch = 'ARM'
+            elif 'x86_64' in arch_l or 'amd64' in arch_l:
+                arch = 'x64'
+            elif '386' in arch_l or 'i386' in arch_l:
+                arch = 'x86'
+            else:
+                m = platform.machine().lower()
+                if m in ('amd64', 'x86_64', 'x64'):
+                    arch = 'x64'
+                elif m in ('i386', 'i686', 'x86'):
+                    arch = 'x86'
+                elif 'arm' in m or 'aarch64' in m:
+                    arch = 'ARM'
                 else:
-                    vram = f"{int(gpu.memoryTotal/1024)}GB"
-                    gpu_list.append(f"{gpu.name.split()[0]} ({' '.join(gpu.name.split()[1:])}, {vram})")
-            
-            full_report = (
-                f"OS: {os_info} | CPU: {cpu_brand} ({cpu_spec}, {ram_gb}GB) | GPU: {', '.join(gpu_list)}"
-            )
-            
-            if len(full_report) > width-5:
-                short_report = f"OS: {os_info} | CPU: {cpu_brand} ({cpu_spec}, {ram_gb}GB)"
-                if len(short_report) > width-5:
-                    short_report = f"OS: {os_info} | CPU: {cpu_brand} | RAM: {ram_gb}GB"
-                return short_report
-
-            return full_report
-
+                    arch = m
+            ram_gb = int(np.round(psutil.virtual_memory().total / (1024.0 ** 3)))
+            raw = ci.get('brand_raw', '').strip()
+            low = raw.lower()
+            if 'intel' in low:
+                cpu_brand = 'Intel'
+            elif 'amd' in low:
+                cpu_brand = 'AMD'
+            elif 'qualcomm' in low or 'snapdragon' in low:
+                cpu_brand = 'Qualcomm'
+            elif 'apple' in low:
+                cpu_brand = 'Apple'
+            else:
+                cpu_brand = raw.split()[0] if raw else 'CPU'
+            cpu_spec = raw.replace(cpu_brand, '').split('@')[0].strip()
+            gpu_entries = []
+            for gpu in GPUtil.getGPUs():
+                name = gpu.name.strip()
+                if 'intel' in name.lower():
+                    gpu_entries.append(name)
+                else:
+                    vram_gb = int(round(gpu.memoryTotal / 1024))
+                    gpu_entries.append(f"{name} ({vram_gb} GB)")
+            if not gpu_entries:
+                if cpu_brand == 'Intel':
+                    gpu_entries.append('Intel Integrated Graphics (shared)')
+                elif cpu_brand == 'AMD':
+                    gpu_entries.append('AMD Integrated Graphics (shared)')
+                elif cpu_brand == 'Qualcomm':
+                    gpu_entries.append('Qualcomm Adreno Integrated Graphics (shared)')
+                elif cpu_brand == 'Apple':
+                    gpu_entries.append('Apple Integrated GPU')
+            report = f"OS: {os_info} | Arch: {arch} | CPU: {cpu_brand} {cpu_spec}, {ram_gb} GB RAM | GPU: {', '.join(gpu_entries)}"
+            if len(report) > width - 5:
+                short = f"OS: {os_info} | Arch: {arch} | CPU: {cpu_brand} {cpu_spec}, {ram_gb}GB"
+                if len(short) > width - 5:
+                    short = f"OS: {os_info} | Arch: {arch} | CPU: {cpu_brand} | RAM: {ram_gb}GB"
+                return short
+            return report
 
         box.clear_columns(list_of_strings=["",f"{pconfigurated}"], label= f"Type: {ptype}", max_space_between_elements=4)
         
@@ -5909,11 +6074,11 @@ class search(model,Implement):
                 box.bottom()
         else:
             box.bottom()
-        print()
-        
+    
+    def report_model(self, style=1, width=90):
+        box = report(width=width, style=style)
         # Second box: Model
         if self.method!='madm':
-
             box.top(left="Model")
 
             values = [
@@ -5927,9 +6092,9 @@ class search(model,Implement):
                 format_string(self.em.features.get("constraint_counter",[0,0])[0],ensure_length=True),
                 ]            
 
-            box.clear_columns(list_of_strings=["B"+" "*(len(values[0])-1), "I"+" "*(len(values[1])-1), "P"+" "*(len(values[2])-1), "F"+" "*(len(values[3])-1), "E"+" "*(len(values[4])-1), "S"+" "*(len(values[5])-1), "O"+" "*(len(values[6])-1), "C"+" "*(len(values[7])-1)], label="     ", max_space_between_elements=4)
+            box.clear_columns(list_of_strings=["B"+" "*(len(values[0])-1), "I"+" "*(len(values[1])-1), "P"+" "*(len(values[2])-1), "F"+" "*(len(values[3])-1), "E"+" "*(len(values[4])-1), "S"+" "*(len(values[5])-1), "O"+" "*(len(values[6])-1), "C"+" "*(len(values[7])-1)], label="     ", max_space_between_elements=8)
             box.middle()
-            box.clear_columns(list_of_strings=values, label=f"Class", max_space_between_elements=4)
+            box.clear_columns(list_of_strings=values, label=f"Class", max_space_between_elements=8)
 
             values = [
                 format_string(self.em.features.get("binary_variable_counter",[0,0])[1],ensure_length=True), 
@@ -5942,58 +6107,75 @@ class search(model,Implement):
                 format_string(self.em.features.get("constraint_counter",[0,0])[1],ensure_length=True),
                 ]
 
-            box.clear_columns(list_of_strings=values, label=f"Size ", max_space_between_elements=4)
+
+            box.clear_columns(list_of_strings=values, label=f"Size", max_space_between_elements=4)
             box.bottom()
 
-        # Mathematical Model
-        if full:
-            try:
-                import textwrap
-                tline_text('Math', box_width=90)
-                empty_line()
-                obdirs = 0
-                for objective in self.features['objectives']:
-                    wrapped_objective = textwrap.fill(str(objective), width=90)
-                    boxed(str(f"obj: {self.features['directions'][obdirs]} {wrapped_objective}"))
-                    obdirs += 1
-                left_align('s.t.')
-                if self.features['constraint_labels'][0] != None:
-                    for constraint in sorted(zip(self.features['constraint_labels'], self.features['constraints']), key=lambda x: x[0]):
-                        wrapped_constraint = textwrap.fill(str(constraint[1]), width=90)
-                        boxed(str(f"con {constraint[0]}: {wrapped_constraint}"))
-                else:
-                    counter = 0
-                    for constraint in self.features['constraints']:
-                        wrapped_constraint = textwrap.fill(str(constraint), width=90)
-                        boxed(str(f"con {counter}: {wrapped_constraint}"))
-                        counter += 1
-                empty_line()
-                bline()
-            except:
-                pass
-        
-            # Slack duual
+    def report_formulation(self, style=1, width=90):
+        import textwrap
+        box = report(width=width, style=style)
+        box.top(left="Formulation")
+        box.empty()
+        obdirs = 0
+        for objective in self.em.features['objectives']:
+            if obdirs > len(self.directions)-1:
+                box.empty()
+            
+            wrapped_objective = textwrap.fill(str(objective), width=width)
+            box.print_value("obj", f"{self.em.features['directions'][obdirs]} {wrapped_objective}", sign=":")
+            #boxed(str(f"obj: {self.em.features['directions'][obdirs]} {wrapped_objective}"))
+            obdirs += 1
+        box.empty()
+        if  self.em.features['constraint_labels'] and self.em.features['constraint_labels'][0] != None:
+            for constraint in sorted(
+                zip(self.em.features['constraint_labels'], self.em.features['constraints']),
+                key=lambda x: x[0] if x[0] is not None else ''
+            ):
 
-            tline_text("Extra")
-            empty_line()
-            try:
-                left_align("Slack:")
-                for i in self.em.features['constraint_labels']:
-                    left_align(str(i) + " = " + str(self.em.get_slack(i)))
-                empty_line()
+
+                wrapped_constraint = textwrap.fill(str(constraint[1]), width=width)
+                #boxed(str(f"con {constraint[0]}: {wrapped_constraint}"))
+                box.print_value(str(f"con {constraint[0]}"), str(wrapped_constraint), sign=":")
+        else:
+            counter = 0
+            for constraint in self.em.features['constraints']:
+                wrapped_constraint = textwrap.fill(str(constraint), width=90)
+                boxed(str(f"con {counter}: {wrapped_constraint}"))
+                counter += 1
+        box.empty()
+        box.bottom()
+
+    def report_lp_insights(self, style=1, width=90):
+
+        if self.method!="heuristic" and self.em.features['constraint_labels']:
+            self.em.get_dual(self.em.features['constraint_labels'][0])
+            try: 
+                self.em.get_dual(self.em.features['constraint_labels'][0])
+                try:
+                    box = report(width=width, style=style)
+                    box.top(left="[Primal] Slack/Surplus")
+                    box.empty()
+                    for i in self.em.features['constraint_labels']:
+                        box.print_value(i, self.em.get_slack(i))
+                    box.empty()
+                except Exception as e:
+                    pass
+                try:
+                    box.middle(left="[Dual] Shadow Price")
+                    box.empty()
+                    for i in self.em.features['constraint_labels']:
+                        box.print_value(i,self.em.get_dual(i))
+                    box.empty()
+                except Exception as e:
+                    pass
+                box.bottom()
             except:
                 pass
-            try:
-                left_align("Dual:")
-                for i in self.em.features['constraint_labels']:
-                    left_align(str(i) + " = " + str(self.em.get_dual(i)))
-                empty_line()
-            except:
-                pass
-            bline()
-    
-        if self.healthy() == False and (self.number_of_objectives!=1 and len(self.solutions)==0) and not self.sensitivity_analyzed:
-            bline()
+
+
+    def report_debug(self, style=1):
+        if self.healthy() == False and self.number_of_objectives==1 and not self.sensitivity_analyzed:
+
             tline_text("Debug")
             empty_line()
             try:
@@ -6002,29 +6184,42 @@ class search(model,Implement):
                 ''
             empty_line()
             bline()
-                    
-        # Third box: Metrics
+
+    def report_metrics(self, style=1, width=90, skip=False):
+        box = report(width=width, style=style)
         if self.method!='madm':                
-            print()
-
-
             box.top(left="Metric",center=format_time_and_microseconds(self.mgt, name='MGT: '),right=format_time_and_microseconds(self.cpt, name='CPT: '))
             box.empty()
-    
             if self.dataset_size:
                 try:
-                    box.row(left="Data Support Ratio", right=format_string(self.dataset_size/self.em.features.get("total_variable_counter",[0,0])[1],ensure_length=True))
-                    box.empty()
+                    box.row(left="DSR", right=format_string(self.dataset_size/self.em.features.get("total_variable_counter",[0,0])[1],ensure_length=True))
                 except:
                     pass
-                            
+
+            if self.track_history:
+                try:
+                    box.row(left="STG", right=format_string(self.stagnation,ensure_length=True))
+                except:
+                    pass
+                
             if self.number_of_objectives==1:
+                total_var_count = (
+                    self.em.features.get("total_variable_counter", [0, 0])[1]
+                    if hasattr(self.em, "features") and isinstance(self.em.features, dict)
+                    else 0
+                )
+                total_density = self.get_density()
+                if total_density == "n/a" or total_var_count == 0:
+                    box.row(left="DTD", right="n/a")
+                else:
+                    box.row(left="DTD", right=format_string(total_density / total_var_count, ensure_length=True))
+
+                box.empty()
                 def show(i):
-                    return "Objective"
+                    return "OBJ"
             else:
                 def show(i):
-                    return f"Pareto point {i}"
-            
+                    return f"OBJ ALT {i}"
             try:
                 for i in range(self.num_objective_values):
                     k=None
@@ -6037,90 +6232,9 @@ class search(model,Implement):
                         box.row(left= show(k), right=' '.join(format_string(j,ensure_length=True) for j in self.objective_values[k]))
             except:
                 pass
-
-            if self.track_history:
-                try:
-                    box.row(left="Stagnation", right=format_string(self.stagnation,ensure_length=True))
-                except:
-                    pass
-                            
             box.empty()
             box.bottom()
-            
-            if self.inputdata:
-                if type(self.inputdata)!=dict:
-                    print()
-                    box.top(left="Data")
-                    box.row(left='', right=' '.join(j for j in ["Domain    ", "Size    ", "Min     ", "Max     ", "Ave     ", "Std     "]))
-                    box.middle()
-                    try:
-                        for name in self.inputdata.data.keys():
-                            box.row(left=name, right=' '.join(format_string(j,ensure_length=True) for j in [self.inputdata.type_params[name], self.inputdata.size_params[name], self.inputdata.minimum_params[name],self.inputdata.maximum_params[name],self.inputdata.average_params[name],self.inputdata.std_params[name]]))
-
-                    except:
-                        pass
-                    box.bottom()
-
-            # Fourth box: Decisions
-            print()
-            box.top(
-                left="Decision",
-                right=(
-                    "Zeros not reported!" if (show_elements and self.healthy()) 
-                    else "" if self.healthy() 
-                    else "Nothing!"
-                )
-            )
-            try:
-                if self.method in ["constraint"]:
-                    box.empty()
-                    self.em.decision_information_print(self.em.status, 
-                                                       show_tensors=False, 
-                                                       show_detailed_tensors=False, 
-                                                       box_width=width-2)
-                    box.empty()
-                    box.bottom()
-                else:
-                    if self.number_of_objectives ==1:
-                        for key in self.solutions:
-                            if key in self.key_vars or len(self.key_vars)==0:
-                                box.empty()
-                                if show_elements:
-                                    box.print_element(key,self.solutions[key])
-                                else:
-                                    box.print_tensor(key,self.solutions[key])
-                    else:
-                        box.empty()
-                        for i in range(self.objective_values.shape[0]):
-                            k=None
-                            if skip==False:
-                                k = i
-                            else:
-                                if i%skip==0:
-                                    k=i
-                            if k!=None:
-                                box.row(left=f"Pareto solution {k}", right=' '.join(format_string(j,ensure_length=True) for j in self.objective_values[k]))
-                                box.empty()
-                                for key in self.solutions[k]:
-                                    if key in self.key_vars or len(self.key_vars)==0:
-                                        if show_elements:
-                                            box.print_element(key,self.solutions[k][key])
-                                        else:
-                                            box.print_tensor(key,self.solutions[k][key])
-                            if i!=self.objective_values.shape[0]-1:
-                                box.empty()
-                    box.empty()
-                    box.bottom()
-            except: 
-                box.empty()
-                box.empty()
-                box.bottom()
-                pass
         else:
-            self.em.show_tensor=False if show_elements else True
-            self.em.show_detailed_tensors=False
-            self.em.output_decimals=4
-            
             seconds_value = self.cpt
             microseconds_value = seconds_value * 1e6
             microseconds_scientific_notation = "{:.2e}".format(microseconds_value)
@@ -6131,30 +6245,40 @@ class search(model,Implement):
             box.top(left="Metric",right=f"{time_formatted} h:m:s" + f" {microseconds_scientific_notation} μs")
             box.empty()
             self.em._generate_metric_info(show_top=False)
-            print()
-            self.em._generate_decision_info()
-        
-        # Benchmark
+
+    def report_data(self, style=1, width=90):
+        box = report(width=width, style=style)
+        if self.inputdata:
+            if type(self.inputdata)!=dict:
+                box.top(left="Data")
+                box.row(left='', right=' '.join(j for j in ["Domain    ", "Size    ", "Min     ", "Max     ", "Ave     ", "Std     "]))
+                box.middle()
+                try:
+                    for name in self.inputdata.data.keys():
+                        box.row(left=name, right=' '.join(format_string(j,ensure_length=True) for j in [self.inputdata.type_params[name], self.inputdata.size_params[name], self.inputdata.minimum_params[name],self.inputdata.maximum_params[name],self.inputdata.average_params[name],self.inputdata.std_params[name]]))
+                except:
+                    pass
+                box.bottom()
+
+    def report_benchmark(self, width=90, style=1):
+        box = report(width=width, style=style)
         if self.should_benchmark:
-            print()
             box.top(left="Benchmark")
             box.empty()
             box.print_pandas_df(label="Benchmark Results", df=self.ben_results[[('interface', ''), ('solver', ''), ('time', 'ave'), ('obj', 'ave')]])
             box.empty()
             box.bottom()
-        
+
+    def report_sensitivity(self, width=90, style=1, skip=False, show_elements=False):
+        box = report(width=width, style=style)
         # Sensitivity report
         if self.sensitivity_analyzed:
-            print()
-            
             for parameter_name in self.sensitivity_parameter_names:
                 if self.sensitivity_parameter_names.index(parameter_name)==0:
                     box.top(left="Sensitivity")
-                
                 box.empty()
                 box.row(left=f"∞ Parameter {parameter_name}")
                 box.empty()
-                
                 for i in range(len(self.sensitivity_parameter_values[self.sensitivity_parameter_names.index(parameter_name)])):
                     j=None
                     if skip==False:
@@ -6162,10 +6286,8 @@ class search(model,Implement):
                     else:
                         if i%skip ==0:
                             j=i
-                    
                     if j!=None:
                         box.empty()                    
-                        
                         seconds_value = self.sensitivity_data[f"sensitivtiy_of_cpt_to_{parameter_name}"][j]
                         microseconds_value = seconds_value * 1e6
                         microseconds_scientific_notation = "{:.2e}".format(microseconds_value)
@@ -6173,17 +6295,13 @@ class search(model,Implement):
                         minutes = int((microseconds_value % 3600e6) // 60e6)
                         seconds = int((microseconds_value % 60e6) / 1e6)
                         time_formatted = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
-
                         box.empty()
                         from colorama import init, Fore
                         init(autoreset=True)
-                        
-
                         if self.number_of_objectives==1:
                             box.row(left=f"→ Scenario {j}", center=(f"{'√ Healthy'}" if self.sensitivity_data[f"sensitivtiy_of_health_to_{parameter_name}"][j] else f"{'X Unhealthy'}")+ f" (Objective: {format_string(self.sensitivity_data[f'sensitivtiy_of_objectives_to_{parameter_name}'][j])})", right=f"{time_formatted} h:m:s" + f" {microseconds_scientific_notation} μs")
                         else:
                             box.row(left=f"→ Scenario {j}", center=(f"{'√ Healthy'}" if self.sensitivity_data[f"sensitivtiy_of_health_to_{parameter_name}"][j] else f"{'X Unhealthy'}"), right=f"{time_formatted} h:m:s" + f" {microseconds_scientific_notation} μs")
-                            
                         box.empty()
                         for key in self.sensitivity_data[f"sensitivtiy_of_solutions_to_{parameter_name}"][j]:
                             if key in self.key_vars or len(self.key_vars)==0:
@@ -6200,13 +6318,10 @@ class search(model,Implement):
                                             box.print_tensor(key,self.sensitivity_data[f"sensitivtiy_of_solutions_to_{parameter_name}"][j][key], "∆ " + format_string(self.sensitivity_data[f"sensitivtiy_of_similarity_to_{parameter_name}"][j][key])+"")
                                         except:
                                             pass
-
                         if self.number_of_objectives !=1:
                             for obj_id in range(self.number_of_objectives):
                                 box.print_tensor(f"Ave. Obj. {obj_id}",np.mean(self.sensitivity_data[f"sensitivtiy_of_objectives_to_{parameter_name}"][j][:,obj_id]))
-                    
                     box.empty()
-            
             seconds_value = self.sensitivity_end_timer - self.sensitivity_begin_timer
             microseconds_value = seconds_value * 1e6
             microseconds_scientific_notation = "{:.2e}".format(microseconds_value)
@@ -6214,10 +6329,58 @@ class search(model,Implement):
             minutes = int((microseconds_value % 3600e6) // 60e6)
             seconds = int((microseconds_value % 60e6) / 1e6)
             time_formatted = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
-                        
             box.bottom(right=f"{time_formatted} h:m:s" + f" {microseconds_scientific_notation} μs")
-    
-            print()
+
+    def report_status(self, style=1):
+
+        from colorama import init, Fore
+        init(autoreset=True)
+        phealthy = "Unknown"
+        if self.em.healthy() or self.method=="madm" or self.sensitivity_analyzed or (self.number_of_objectives!=1 and len(self.solutions)!=0):
+            phealthy = f"{Fore.GREEN}{'√ Healthy'}"
+            if self.inputdata:
+                if type(self.inputdata)!=dict:
+                    self.dataset_size = self.inputdata.size
+                    self.big_m_value   = self.inputdata.possible_big_m
+                    self.epsilon_value = self.inputdata.possible_epsilon 
+                    if self.method in ["exact"]:
+                        bvar_ok = self.is_value_unreliable(self.solutions, [0,1], self.em.features, "bvar")
+                        ivar_ok = self.is_value_unreliable(self.solutions, [0,self.big_m_value], self.em.features, "ivar")
+                        pvar_ok = self.is_value_unreliable(self.solutions, [0,self.big_m_value], self.em.features, "pvar")
+                        fvar_ok = self.is_value_unreliable(self.solutions, [-self.big_m_value,self.big_m_value], self.em.features, "fvar")
+                    else:
+                        bvar_ok = ivar_ok = pvar_ok = fvar_ok = False
+                    #print(bvar_ok, ivar_ok, pvar_ok, fvar_ok)
+                    if bvar_ok or ivar_ok or pvar_ok or fvar_ok:
+                        phealthy+="\n"+f"{Fore.MAGENTA}{'X Unreliable'}"
+                    else:
+                        pass
+                    if self.method in ["exact"]:
+                        bvar_ok = self.is_value_impresice(self.solutions, [0,1], self.em.features, "bvar")
+                    else:
+                        bvar_ok = ivar_ok = pvar_ok = fvar_ok = False
+                    if not bvar_ok:
+                        pass
+                    else:    
+                        phealthy+="\n"+f"{Fore.YELLOW}{'X Imprecise'}"                
+        else:
+            phealthy = f"{Fore.RED}{'X Unhealthy'}"
+        print(phealthy)
+
+    def report(self, style=1, skip_system_information=True, show_elements=False, width=90, skip=False,full=False):
+
+        self.report_status(style=style)
+        self.report_specs (style=style, width=width, skip_system_information=skip_system_information)
+        self.report_model (style=style, width=width)
+        self.report_formulation(style=style)
+        self.report_data(style=style)
+        self.report_lp_insights(style=style)  
+        self.report_metrics(style=style)
+        self.report_debug(style=style)
+        self.report_decision(style=style, key_vars=self.key_vars, show_elements=show_elements, width=width, skip=skip)
+        self.report_sensitivity(style=style)
+        self.report_benchmark(style=style)
+
 
     def save_io(self,name,extra=None):
 
@@ -6232,6 +6395,33 @@ class search(model,Implement):
             dt.data["extra"] = extra
 
         dt.save(name=name)
+
+    def get_density(self):
+        import numbers
+        import numpy as np
+
+        def _count(val, path):
+            if isinstance(val, np.ndarray):
+                return int(np.count_nonzero(val))
+            if isinstance(val, numbers.Number) or isinstance(val, np.generic):
+                return int(val != 0)
+            if isinstance(val, dict):
+                total = 0
+                for subkey, subval in val.items():
+                    total += _count(subval, path + [subkey])
+                return total
+            raise TypeError(
+                f"Unsupported type at {'/'.join(path)}: {type(val).__name__}; "
+                "expected ndarray, dict, or numeric scalar."
+            )
+
+        if not hasattr(self, "solutions") or not self.solutions:
+            return "n/a"
+
+        total_nonzeros = 0
+        for key, value in self.solutions.items():
+            total_nonzeros += _count(value, [key])
+        return total_nonzeros
 
 class parallel_search:
     def __init__(self, configurations, parallelization_method="thread", max_workers=None):
@@ -6348,4 +6538,3 @@ class seeker_model(model):
 class xpress_model(model):
     def __init__(self,name='x'):
         super().__init__('exact', name, 'xpress')
-

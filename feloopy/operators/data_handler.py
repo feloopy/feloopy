@@ -561,17 +561,28 @@ class DataToolkit(FileManager):
                 result = self.random.uniform(low=bound[0], high=bound[1], size=dim)
         return self.__keep(name, result, neglect)
 
-    def weight(self, name, dim=0, bound=[0, 1], neglect=False):
-        dim = self.__fix_dims(dim,is_range=False)
+    def rsum(self, name, total: float, dim=0, bound=[0, 1], neglect=False):
+        if total <= 0:
+            raise ValueError(f"Target sum must be positive. Got: {total}")
+
+        dim = self.__fix_dims(dim, is_range=False)
+        if isinstance(dim, set):
+            dim = len(dim)
+
         if dim == 0:
-            data = self.random.uniform(low=bound[0], high=bound[1])
-            result = data / data.sum() if data.sum() != 0 else data
-        else:
-            if type(dim)==set:
-                dim = len(dim)
+            val = self.random.uniform(low=bound[0], high=bound[1])
+            return self.__keep(name, total if not neglect else val, neglect)
+
+        try:
             data = self.random.uniform(low=bound[0], high=bound[1], size=dim)
-            result = data / data.sum(axis=-1, keepdims=True) if data.sum() != 0 else data
-        return self.__keep(name, result, neglect)
+            s = data.sum()
+            if s == 0:
+                raise ValueError("Generated random values sum to zero, cannot normalize")
+            scaled = data * (total / s)
+        except Exception as e:
+            raise RuntimeError(f"Failed to generate scaled random values: {e}")
+
+        return self.__keep(name, scaled, neglect)
 
     def normal(self, name, dim=0, mu=0, sigma=1, neglect=False):
         dim = self.__fix_dims(dim,is_range=False)
@@ -1215,51 +1226,226 @@ class DataToolkit(FileManager):
             pass
 
         return self.__keep(name, result, neglect)
+    
+    def save_to_excel(
+        self,
+        name: str,
+        array: np.ndarray,
+        dim=0,
+        labels: list = None,
+        appearance: list = None,
+        file_name: str = "data.xlsx"
+    ) -> None:
+        import pandas as pd
+        from openpyxl import Workbook, load_workbook
+        import itertools as it
+        import os
+        import numpy as np
+
+        if not (isinstance(dim, (list, tuple)) or isinstance(dim, int)):
+            raise TypeError("dim must be int or list/tuple")
+
+        if appearance is None:
+            if isinstance(dim, int):
+                appearance = [0, max(1, array.ndim - 1)]
+            else:
+                appearance = [0, max(1, len(dim) - 1)]
+
+        if labels is None:
+            if isinstance(dim, int):
+                labels = [""]
+            else:
+                labels = [""] * len(dim)
+
+        if isinstance(dim, (list, tuple)) and dim and isinstance(dim[0], set):
+            dim = [len(s) for s in dim]
+
+        if hasattr(self, '__fix_dims'):
+            try:
+                dim = self.__fix_dims(dim, is_range=True)
+            except Exception as e:
+                raise RuntimeError(f"Error in __fix_dims: {e}")
+
+        def _size(x):
+            return x if isinstance(x, int) else len(x)
+
+        if not (isinstance(appearance, (list, tuple)) and len(appearance) == 2):
+            raise ValueError("appearance must be a list or tuple of length 2")
+
+        nr, nc = appearance
+
+        if isinstance(dim, int):
+            dim_len = 1
+        else:
+            dim_len = len(dim)
+
+        if not (isinstance(nr, int) and isinstance(nc, int)):
+            raise TypeError("appearance values must be integers")
+
+        if nr < 0 or nc < 0 or nr + nc > dim_len:
+            raise ValueError(f"Invalid appearance values: nr={nr}, nc={nc}, dim length={dim_len}")
+
+        if labels is not None and len(labels) < dim_len:
+            raise ValueError(f"labels length {len(labels)} is less than dim length {dim_len}")
+
+        arr = np.asarray(array, dtype=float)
+
+        try:
+            shape = tuple(_size(d) for d in dim) if dim else arr.shape
+        except Exception as e:
+            raise ValueError(f"Error processing dim values: {e}")
+
+        try:
+            mat = arr.reshape(shape)
+        except Exception as e:
+            raise ValueError(f"Cannot reshape array of size {arr.size} into shape {shape}: {e}")
+
+        col_dims = dim[nr:nr + nc]
+        total_columns = 1
+        for d in col_dims:
+            total_columns *= _size(d)
+
+        MAX_COLUMNS = 16384
+
+        try:
+            if total_columns <= MAX_COLUMNS:
+                wb = load_workbook(file_name) if os.path.exists(file_name) else Workbook()
+                if name in wb.sheetnames:
+                    std = wb[name]
+                    wb.remove(std)
+                ws = wb.create_sheet(title=name)
+
+                dim_sizes = [_size(d) for d in col_dims]
+                all_col_keys = list(it.product(*(range(s) for s in dim_sizes)))
+
+                for level in range(nc):
+                    for col_idx, keys in enumerate(all_col_keys):
+                        label_val = f"{labels[nr + level]}{keys[level]}"
+                        ws.cell(row=level + 1, column=nr + col_idx + 1, value=label_val)
+
+                row_dims = dim[:nr]
+                row_keys = list(it.product(*(range(_size(d)) for d in row_dims))) if nr else [()]
+
+                for row_idx, rk in enumerate(row_keys):
+                    for i in range(nr):
+                        ws.cell(row=nc + 1 + row_idx, column=i + 1, value=f"{labels[i]}{rk[i]}")
+
+                for row_idx, rk in enumerate(row_keys):
+                    for col_idx, ck in enumerate(all_col_keys):
+                        full_idx = rk + ck
+                        try:
+                            val = mat[full_idx]
+                        except Exception as e:
+                            raise IndexError(f"Failed to access element at index {full_idx}: {e}")
+                        ws.cell(row=nc + 1 + row_idx, column=nr + col_idx + 1, value=float(val))
+
+                if 'Sheet' in wb.sheetnames and len(wb.sheetnames) > 1:
+                    std = wb['Sheet']
+                    wb.remove(std)
+
+                wb.save(file_name)
+                wb.close()
+                return
+
+        except Exception as e:
+            print(f"Warning: Couldn't save in 2D format ({e}). Falling back to long format.")
+
+        dim_names = labels[:len(dim)] if labels else [f"dim_{i}" for i in range(len(dim))]
+        all_indices = list(it.product(*(range(_size(d)) for d in dim)))
+        data = []
+        for idx in all_indices:
+            try:
+                val = float(arr[idx])
+            except Exception as e:
+                raise IndexError(f"Error accessing array element {idx}: {e}")
+            data.append((*idx, val))
+
+        df = pd.DataFrame(data, columns=[*dim_names, "Value"])
+
+        if os.path.exists(file_name):
+            try:
+                book = load_workbook(file_name)
+                if name in book.sheetnames:
+                    std = book[name]
+                    book.remove(std)
+                book.save(file_name)
+                book.close()
+            except Exception as e:
+                print(f"Warning: Couldn't modify existing file ({e}). Overwriting.")
+
+        try:
+            with pd.ExcelWriter(
+                file_name,
+                engine='openpyxl',
+                mode='a' if os.path.exists(file_name) else 'w'
+            ) as writer:
+                df.to_excel(writer, sheet_name=name, index=False)
+        except Exception as e:
+            raise IOError(f"Failed to write dataframe to Excel: {e}")
 
     def save(self, name, format="json"):
-        directory = 'results/data'
+        directory = os.path.join('results', 'data')
         if not os.path.exists(directory):
             os.makedirs(directory)
-        file_path = os.path.join(directory, name+"."+format)
-        
+
+        extension = format.lower()
+        file_path = os.path.abspath(os.path.join(directory, f"{name}.{extension}"))
+
         if format == "json":
             try:
                 with open(file_path, 'w') as file:
                     json.dump(self.data, file, default=self._json_serializer, indent=4)
-                print(f"Data successfully exported to {file_path}")
+                print(f"Data successfully exported to JSON at: {file_path}")
             except TypeError as e:
                 print(f"Serialization error: {e}")
             except Exception as e:
-                print(f"An error occurred: {e}")
+                print(f"An error occurred while saving JSON: {e}")
 
-    def load(self,name, format="json", neglect=False):
-        name = name+"."+format
-        final_dir = './data/final'
-        results_dir = 'results/datasets'
-        file_path_final = os.path.join(final_dir, name)
-        file_path_results = os.path.join(results_dir, name)
-        
+        elif format == "parquet":
+            try:
+                df = pd.DataFrame(self.data)
+                df.to_parquet(file_path, index=False)
+                print(f"Data successfully exported to Parquet at: {file_path}")
+            except Exception as e:
+                print(f"An error occurred while saving Parquet: {e}")
+
+        else:
+            print(f"Unsupported format: {format}. Supported formats: 'json', 'parquet'")
+
+    def load(self, name, format="json", neglect=False):
+        extension = format.lower()
+        filename = f"{name}.{extension}"
+        final_dir = os.path.join('.', 'data', 'final')
+        results_dir = os.path.join('results', 'data')
+        file_path_final = os.path.join(final_dir, filename)
+        file_path_results = os.path.join(results_dir, filename)
+
         if os.path.exists(file_path_final):
-            file_path = file_path_final
+            file_path = os.path.abspath(file_path_final)
         elif os.path.exists(file_path_results):
-            file_path = file_path_results
+            file_path = os.path.abspath(file_path_results)
             print(f"Data file found in {results_dir}. For consistency, please move it to {final_dir}.")
         else:
-            raise FileNotFoundError(f"File not found. Please place the data file in {final_dir} or {results_dir}.")
-        
-        if "json" in name:
-            try:
+            raise FileNotFoundError(f"File '{filename}' not found. Please place it in '{final_dir}' or '{results_dir}'.")
+
+        data = None
+        try:
+            if extension == "json":
                 with open(file_path, 'r') as file:
                     data = json.load(file, object_hook=self._json_decoder)
-                print(f"Data successfully imported from {file_path}")
-                data = data
-            except Exception as e:
-                print(f"An error occurred: {e}")
-                data= None
+                print(f"Data successfully imported from JSON at: {file_path}")
 
-        if name.endswith(".json"):
-            name = name[:-5]
-    
+            elif extension == "parquet":
+                df = pd.read_parquet(file_path)
+                data = df.to_dict(orient='records')
+                print(f"Data successfully imported from Parquet at: {file_path}")
+
+            else:
+                raise ValueError(f"Unsupported format: {format}. Supported formats are 'json' and 'parquet'.")
+        except Exception as e:
+            print(f"An error occurred while loading {format.upper()}: {e}")
+            data = None
+
         return self.__keep(name, data, neglect)
-
+    
 data_toolkit = DataToolkit

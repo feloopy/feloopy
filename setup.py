@@ -67,11 +67,9 @@ plus_gurobi = [
     "gurobipy==12.0.1",
 ]
 
-
 plus_copt = [
     "coptpy==7.2.6",
 ]
-
 
 plus_cplex = [
     "cplex==22.1.2.0",

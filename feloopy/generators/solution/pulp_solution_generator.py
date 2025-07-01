@@ -82,7 +82,8 @@ def generate_solution(features):
         pulp_solver_selector['xpress_py'] = pulp_interface.XPRESS_PY(**solver_options)
     elif solver_name == 'xpress':
         pulp_solver_selector['xpress'] = pulp_interface.XPRESS(**solver_options)
-        
+    elif solver_name == 'cuopt':
+        pulp_solver_selector['cuopt'] = pulp_interface.CUOPT(**solver_options)    
 
     if solver_name not in pulp_solver_selector.keys():
         raise RuntimeError(

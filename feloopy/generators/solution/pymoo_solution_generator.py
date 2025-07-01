@@ -27,11 +27,22 @@ def generate_solution(solver_name, AlgOptions, Fitness, ToTalVariableCounter, Ob
         
         def _evaluate(self, x, out, *args, **kwargs):
 
-    
-            f = Fitness(np.array(x))
+            raw_f = Fitness(np.array(x))
+            if isinstance(raw_f, list):
+                f_array = np.column_stack([np.array(obj) for obj in raw_f])
+            else:
+                f_array = np.atleast_2d(np.array(raw_f))
 
-            out["F"] = np.column_stack([ObjectivesDirections[i]*f[i] for i in range(len(ObjectivesDirections))])
-    
+            n_objs = f_array.shape[1]
+            n_dirs = len(ObjectivesDirections)
+            if n_objs != n_dirs:
+                raise ValueError(
+                    f"Mismatch: Fitness output has {n_objs} objectives, "
+                    f"but ObjectivesDirections has {n_dirs}"
+                )
+
+            out["F"] = f_array * ObjectivesDirections
+
     problem = MyProblem()
 
     match solver_name:
@@ -39,7 +50,7 @@ def generate_solution(solver_name, AlgOptions, Fitness, ToTalVariableCounter, Ob
         case "ns-ga-ii":
 
             from pymoo.algorithms.moo.nsga2 import NSGA2
-            algorithm = NSGA2()
+            algorithm = NSGA2(**AlgOptions)
 
         case "d-ns-ga-ii":
 
