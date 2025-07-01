@@ -47,7 +47,7 @@ FelooPy (/fɛlupaɪ/) is a user-friendly tool for coding, modeling, and solving 
 You can install `feloopy` inside a Python>=3.1x.x virtual environment:
 
 ```bash
-pip install -U "feloopy[stock]==0.3.8"
+pip install -U "feloopy[stock]==0.3.9"
 ```
 
 For supporting the developer, testing the latest version, and reporting bugs or contributing to the codebase, use:
@@ -78,18 +78,18 @@ flp.search(example,directions=["max"]).clean_report()
 
 <br>
 
-
 ## Quick Citation
 
 To cite or give credit to FelooPy in publications, projects, presentations, web pages, blog posts, etc., please use one of the following entries based on the version you used:
 
 ---
 
-### APA 7th Edition  
-**Tafakkori, K.** (2022–2025). *FelooPy: Efficient and feature-rich integrated decision environment* (Version 0.3.8) [Computer software]. GitHub. [https://github.com/feloopy/feloopy](https://github.com/feloopy/feloopy)
+### APA 7th Edition
 
-*For APA 6th Edition*, use:  
-**Tafakkori, K.** (2025). *FelooPy: Efficient and feature-rich integrated decision environment* (Version 0.3.8) [Computer software]. Retrieved from [https://github.com/feloopy/feloopy](https://github.com/feloopy/feloopy)  
+**Tafakkori, K.** (2022–2025). *FelooPy: Efficient and feature-rich integrated decision environment* (Version 0.3.9) [Computer software]. GitHub. [https://github.com/feloopy/feloopy](https://github.com/feloopy/feloopy)
+
+*For APA 6th Edition*, use:
+**Tafakkori, K.** (2025). *FelooPy: Efficient and feature-rich integrated decision environment* (Version 0.3.9) [Computer software]. Retrieved from [https://github.com/feloopy/feloopy](https://github.com/feloopy/feloopy)
 
 ---
 
@@ -100,12 +100,13 @@ To cite or give credit to FelooPy in publications, projects, presentations, web 
   author      = {Keivan Tafakkori},
   title       = {{FelooPy: Efficient and Feature-Rich Integrated Decision Environment}},
   year        = {2025},
-  version     = {0.3.8},
+  version     = {0.3.9},
   publisher   = {GitHub},
   url         = {https://github.com/feloopy/feloopy},
   note        = {Original release: September 2022},
 }
 ```
+
 <br>
 <br>
 
@@ -119,6 +120,7 @@ To cite or give credit to FelooPy in publications, projects, presentations, web 
 Tafakkori, K. (2022). FelooPy: An integrated optimization environment for AutoOR in Python [Python Library]. Retrieved from https://github.com/ktafakkori/feloopy (Original work published September 2022).
 
 ##### LaTeX/BiBTeX
+
 ```
 @software{ktafakkori2022Sep,
 author       = {Keivan Tafakkori},
@@ -129,6 +131,5 @@ publisher    = {GitHub},
 url          = {https://github.com/ktafakkori/feloopy/}
 }
 ```
-
 
 </details>
