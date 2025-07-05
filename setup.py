@@ -21,6 +21,7 @@ common = [
     "xlsxwriter",
     "tqdm",
     "colorama",
+    "joblib",
     "rich",
 ]
 
