@@ -33,6 +33,7 @@ update.py
 backups/
 workflows/
 mytests/
+experiments/
 release*
 publish*.py
 publish-doc.py
