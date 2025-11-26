@@ -1,4 +1,5 @@
 <div align="center">
+
   <p>
     <a href="https://feloopy.github.io" target="_blank">
       <picture>
@@ -8,6 +9,7 @@
       </picture>
     </a>
   </p>
+
 </div>
 
 <p align="center">
@@ -23,7 +25,7 @@
 
 </div>
 
-<br>
+----
 
 ### Documentation
 
