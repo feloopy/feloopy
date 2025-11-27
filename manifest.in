@@ -1,0 +1,5 @@
+global-exclude *.pyd *.so *.dll
+prune feloopy/extensions
+prune tests
+graft feloopy
+recursive-exclude tests *
