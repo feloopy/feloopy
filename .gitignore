@@ -2,15 +2,16 @@
 # See the file LICENSE file for licensing details.
 
 # dev/build
-__pycache__/
+.githooks/*
+__pycache__/*
 *.py[cod]
 *.pyo
-*.egg-info/
-build/
-dist/
-wheelhouse/
+*.egg-info/*
+build/*
+dist/*
+wheelhouse/*
 .env
-.venv/
-feloopy/extensions/
-tests/
-private_wheels/
+.venv/*
+feloopy/extensions/*
+tests/*
+private_wheels/*
