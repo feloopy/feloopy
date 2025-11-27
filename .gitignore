@@ -3,6 +3,7 @@
 
 # dev/build
 .githooks/*
+.vscode/*
 __pycache__/*
 *.py[cod]
 *.pyo
