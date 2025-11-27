@@ -1,43 +1,16 @@
 # Copyright (c) 2022-2025, Keivan Tafakkori. All rights reserved.
 # See the file LICENSE file for licensing details.
 
-__pycache__
-_build
-.vscode
-.vs
-*.lp
-*.mps
-*.sio
-build
-clean.py
-create.py
-data
-data.xlsx
-debug.ipynb
-dist
-documents/
-env
-example.py
-extra*
-feloopy.egg-info
-guide/
-main*
-modules
-project*
-results
-site
-test.py
-test*
-todo.txt
-update.py
-backups/
-workflows/
-mytests/
-experiments/
-release*
-publish*.py
-publish-doc.py
-write-doc.ipynb
-README_MAIN.md
-cache*
-*cache
+# dev/build
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+build/
+dist/
+wheelhouse/
+.env
+.venv/
+feloopy/extensions/
+tests/
+private_wheels/
