@@ -29,6 +29,4 @@
 
 ### Documentation
 
-Test
-
 Please visit https://feloopy.github.io/docs.
