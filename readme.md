@@ -3,9 +3,9 @@
   <p>
     <a href="https://feloopy.github.io" target="_blank">
       <picture>
-        <source media="(prefers-color-scheme: light)" srcset="https://github.com/feloopy/feloopy/raw/main/feloopy/assets/feloopy-logo-name-light.png">
-        <source media="(prefers-color-scheme: dark)" srcset="https://github.com/feloopy/feloopy/raw/main/feloopy/assets/feloopy-logo-name-dark.png">
-        <img alt="FelooPy's logo." src="https://github.com/feloopy/feloopy/raw/main/feloopy/assets/feloopy-logo-name-light.png" width="300" height="auto">
+        <source media="(prefers-color-scheme: light)" srcset="https://github.com/feloopy/feloopy/raw/main/feloopy/assets/logo-black.svg">
+        <source media="(prefers-color-scheme: dark)" srcset="https://github.com/feloopy/feloopy/raw/main/feloopy/assets/logo-white.svg">
+        <img alt="FelooPy's logo." src="https://github.com/feloopy/feloopy/raw/main/feloopy/assets/logo-black.svg" width="300" height="auto">
       </picture>
     </a>
   </p>
