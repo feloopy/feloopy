@@ -17,7 +17,7 @@
 
   <h1>FelooPy</h1>
 
-  <strong>Efficient & Feature-Rich Integrated Decision Environment</strong>
+  <strong>Efficient & Feature-Rich Decision Engine</strong>
 </div>
 
 <div align="center" style="margin-bottom: 2px;">
