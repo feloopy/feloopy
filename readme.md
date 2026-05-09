@@ -5,16 +5,20 @@
       <picture>
         <source media="(prefers-color-scheme: light)" srcset="https://github.com/feloopy/feloopy/raw/main/feloopy/assets/logo-black.svg">
         <source media="(prefers-color-scheme: dark)" srcset="https://github.com/feloopy/feloopy/raw/main/feloopy/assets/logo-white.svg">
-        <img alt="FelooPy's logo." src="https://github.com/feloopy/feloopy/raw/main/feloopy/assets/logo-black.svg" width="300" height="auto">
+        <img alt="FelooPy's logo." src="https://github.com/feloopy/feloopy/raw/main/feloopy/assets/logo-black.svg" width="100" height="auto">
       </picture>
     </a>
   </p>
 
 </div>
 
-<p align="center">
+
+<div align="center">
+
+  <h1>FelooPy</h1>
+
   <strong>Efficient & Feature-Rich Integrated Decision Environment</strong>
-</p>
+</div>
 
 <div align="center" style="margin-bottom: 2px;">
 
@@ -26,7 +30,3 @@
 </div>
 
 ----
-
-### Documentation
-
-Please visit https://feloopy.github.io/docs.
