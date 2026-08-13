@@ -1,4 +1,4 @@
-# Copyright (c) 2022-2025, Keivan Tafakkori. All rights reserved.
+# Copyright (c) 2022-2026, Keivan Tafakkori. All rights reserved.
 # See the file LICENSE file for licensing details.
 
 def generate_solution(solver_name, AlgOptions, Fitness, ToTalVariableCounter, ObjectivesDirections, ObjectiveBeingOptimized, number_of_times, show_plots, save_plots, show_log):
