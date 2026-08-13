@@ -1599,6 +1599,7 @@ class model(
                 import psutil
                 import cpuinfo
                 import platform
+                import subprocess
                 tline_text("System")
                 empty_line()
                 cpu_info = cpuinfo.get_cpu_info()["brand_raw"]
@@ -1612,14 +1613,86 @@ class model(
                 left_align(f"CPU   Model: {cpu_info}")
                 left_align(f"CPU   Cores: {cpu_cores}")
                 left_align(f"CPU Threads: {cpu_threads}")
-                try:
-                    import GPUtil
-                    gpus = GPUtil.getGPUs()
-                    for gpu in gpus:
-                        left_align(f"GPU   Model: {gpu.name}")
-                        left_align(f"GPU    VRAM: {gpu.memoryTotal / 1024:.2f} GB")
-                except:
-                    pass
+
+                gpu_entries = []
+                if os_info == "Windows":
+                    try:
+                        result = subprocess.run(
+                            ["powershell", "-NoProfile", "-Command",
+                             "Get-CimInstance Win32_VideoController | "
+                             "Select-Object Name, AdapterRAM | "
+                             "ForEach-Object { \"$($_.Name)|$($_.AdapterRAM)\" }"],
+                            capture_output=True, text=True, timeout=10,
+                            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)
+                        )
+                        for line in result.stdout.strip().splitlines():
+                            line = line.strip()
+                            if not line or "|" not in line:
+                                continue
+                            name, vram_bytes_str = line.split("|", 1)
+                            name = name.strip()
+                            try:
+                                vram_bytes = int(vram_bytes_str.strip())
+                            except (ValueError, TypeError):
+                                vram_bytes = 0
+                            if not name:
+                                continue
+                            if vram_bytes > 0:
+                                gpu_entries.append((name, vram_bytes / (1024 ** 3)))
+                            else:
+                                gpu_entries.append((name, 0))
+                    except Exception:
+                        pass
+                elif os_info == "Linux":
+                    try:
+                        result = subprocess.run(["lspci"], capture_output=True, text=True, timeout=10)
+                        for line in result.stdout.splitlines():
+                            lower = line.lower()
+                            if "vga" in lower or "3d" in lower or "display" in lower:
+                                parts = line.split(": ", 1)
+                                name = parts[1].strip() if len(parts) > 1 else line.strip()
+                                gpu_entries.append((name, 0))
+                    except Exception:
+                        pass
+                    import glob as globmod
+                    for i, (name, vram) in enumerate(gpu_entries):
+                        vram_paths = globmod.glob(f"/sys/class/drm/card{i}-device/mem_info_vram_total")
+                        if not vram_paths:
+                            vram_paths = globmod.glob(f"/sys/class/drm/card{i}/device/mem_info_vram_total")
+                        for vp in vram_paths:
+                            try:
+                                with open(vp) as f:
+                                    vram_bytes = int(f.read().strip())
+                                gpu_entries[i] = (name, vram_bytes / (1024 ** 3))
+                            except (ValueError, OSError):
+                                pass
+                elif os_info == "Darwin":
+                    try:
+                        result = subprocess.run(
+                            ["system_profiler", "SPDisplaysDataType"],
+                            capture_output=True, text=True, timeout=10
+                        )
+                        current_name = None
+                        for line in result.stdout.splitlines():
+                            stripped = line.strip()
+                            if stripped.startswith("Chipset Model:") or stripped.startswith("Chip Model:"):
+                                current_name = stripped.split(":", 1)[1].strip()
+                            elif stripped.startswith("VRAM (Total):") and current_name:
+                                vram_str = stripped.split(":", 1)[1].strip()
+                                gpu_entries.append((current_name, vram_str))
+                                current_name = None
+                        if current_name and current_name not in [e[0] for e in gpu_entries]:
+                            gpu_entries.append((current_name, 0))
+                    except Exception:
+                        pass
+
+                for name, vram in gpu_entries:
+                    left_align(f"GPU   Model: {name}")
+                    if isinstance(vram, (int, float)) and vram > 0:
+                        left_align(f"GPU    VRAM: {vram:.2f} GB")
+                    elif isinstance(vram, str):
+                        left_align(f"GPU    VRAM: {vram}")
+
                 left_align(f"SYSTEM  RAM: {ram_total / (1024 ** 3):.2f} GB")
             except:
                 pass
@@ -3918,6 +3991,7 @@ class Implement:
                 import psutil
                 import cpuinfo
                 import platform
+                import subprocess
                 tline_text("System")
                 empty_line()
                 cpu_info = cpuinfo.get_cpu_info()["brand_raw"]
@@ -3931,20 +4005,92 @@ class Implement:
                 left_align(f"CPU   Model: {cpu_info}")
                 left_align(f"CPU   Cores: {cpu_cores}")
                 left_align(f"CPU Threads: {cpu_threads}")
-                try:
-                    import GPUtil
-                    gpus = GPUtil.getGPUs()
-                    for gpu in gpus:
-                        left_align(f"GPU   Model: {gpu.name}")
-                        left_align(f"GPU    VRAM: {gpu.memoryTotal / 1024:.2f} GB")
-                except:
-                    pass
+
+                gpu_entries = []
+                if os_info == "Windows":
+                    try:
+                        result = subprocess.run(
+                            ["powershell", "-NoProfile", "-Command",
+                             "Get-CimInstance Win32_VideoController | "
+                             "Select-Object Name, AdapterRAM | "
+                             "ForEach-Object { \"$($_.Name)|$($_.AdapterRAM)\" }"],
+                            capture_output=True, text=True, timeout=10,
+                            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)
+                        )
+                        for line in result.stdout.strip().splitlines():
+                            line = line.strip()
+                            if not line or "|" not in line:
+                                continue
+                            name, vram_bytes_str = line.split("|", 1)
+                            name = name.strip()
+                            try:
+                                vram_bytes = int(vram_bytes_str.strip())
+                            except (ValueError, TypeError):
+                                vram_bytes = 0
+                            if not name:
+                                continue
+                            if vram_bytes > 0:
+                                gpu_entries.append((name, vram_bytes / (1024 ** 3)))
+                            else:
+                                gpu_entries.append((name, 0))
+                    except Exception:
+                        pass
+                elif os_info == "Linux":
+                    try:
+                        result = subprocess.run(["lspci"], capture_output=True, text=True, timeout=10)
+                        for line in result.stdout.splitlines():
+                            lower = line.lower()
+                            if "vga" in lower or "3d" in lower or "display" in lower:
+                                parts = line.split(": ", 1)
+                                name = parts[1].strip() if len(parts) > 1 else line.strip()
+                                gpu_entries.append((name, 0))
+                    except Exception:
+                        pass
+                    import glob as globmod
+                    for i, (name, vram) in enumerate(gpu_entries):
+                        vram_paths = globmod.glob(f"/sys/class/drm/card{i}-device/mem_info_vram_total")
+                        if not vram_paths:
+                            vram_paths = globmod.glob(f"/sys/class/drm/card{i}/device/mem_info_vram_total")
+                        for vp in vram_paths:
+                            try:
+                                with open(vp) as f:
+                                    vram_bytes = int(f.read().strip())
+                                gpu_entries[i] = (name, vram_bytes / (1024 ** 3))
+                            except (ValueError, OSError):
+                                pass
+                elif os_info == "Darwin":
+                    try:
+                        result = subprocess.run(
+                            ["system_profiler", "SPDisplaysDataType"],
+                            capture_output=True, text=True, timeout=10
+                        )
+                        current_name = None
+                        for line in result.stdout.splitlines():
+                            stripped = line.strip()
+                            if stripped.startswith("Chipset Model:") or stripped.startswith("Chip Model:"):
+                                current_name = stripped.split(":", 1)[1].strip()
+                            elif stripped.startswith("VRAM (Total):") and current_name:
+                                vram_str = stripped.split(":", 1)[1].strip()
+                                gpu_entries.append((current_name, vram_str))
+                                current_name = None
+                        if current_name and current_name not in [e[0] for e in gpu_entries]:
+                            gpu_entries.append((current_name, 0))
+                    except Exception:
+                        pass
+
+                for name, vram in gpu_entries:
+                    left_align(f"GPU   Model: {name}")
+                    if isinstance(vram, (int, float)) and vram > 0:
+                        left_align(f"GPU    VRAM: {vram:.2f} GB")
+                    elif isinstance(vram, str):
+                        left_align(f"GPU    VRAM: {vram}")
+
                 left_align(f"SYSTEM  RAM: {ram_total / (1024 ** 3):.2f} GB")
             except:
                 pass
             empty_line()
             bline()
-
+        
         if model_info:
             tline_text("Model")
             empty_line()
@@ -5046,6 +5192,7 @@ class MADM:
         try:
             import psutil
             import cpuinfo
+            import subprocess
             tline_text("System")
             empty_line()
             cpu_info = cpuinfo.get_cpu_info()["brand_raw"]
@@ -5060,14 +5207,84 @@ class MADM:
             left_align(f"CPU   Cores: {cpu_cores}")
             left_align(f"CPU Threads: {cpu_threads}")
 
-            try:
-                import GPUtil
-                gpus = GPUtil.getGPUs()
-                for gpu in gpus:
-                    left_align(f"GPU   Model: {gpu.name}")
-                    left_align(f"GPU    VRAM: {gpu.memoryTotal / 1024:.2f} GB")
-            except:
-                pass
+            gpu_entries = []
+            if os_info == "Windows":
+                try:
+                    result = subprocess.run(
+                        ["powershell", "-NoProfile", "-Command",
+                        "Get-CimInstance Win32_VideoController | "
+                        "Select-Object Name, AdapterRAM | "
+                        "ForEach-Object { \"$($_.Name)|$($_.AdapterRAM)\" }"],
+                        capture_output=True, text=True, timeout=10,
+                        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)
+                    )
+                    for line in result.stdout.strip().splitlines():
+                        line = line.strip()
+                        if not line or "|" not in line:
+                            continue
+                        name, vram_bytes_str = line.split("|", 1)
+                        name = name.strip()
+                        try:
+                            vram_bytes = int(vram_bytes_str.strip())
+                        except (ValueError, TypeError):
+                            vram_bytes = 0
+                        if not name:
+                            continue
+                        if vram_bytes > 0:
+                            gpu_entries.append((name, vram_bytes / (1024 ** 3)))
+                        else:
+                            gpu_entries.append((name, 0))
+                except Exception:
+                    pass
+            elif os_info == "Linux":
+                try:
+                    result = subprocess.run(["lspci"], capture_output=True, text=True, timeout=10)
+                    for line in result.stdout.splitlines():
+                        lower = line.lower()
+                        if "vga" in lower or "3d" in lower or "display" in lower:
+                            parts = line.split(": ", 1)
+                            name = parts[1].strip() if len(parts) > 1 else line.strip()
+                            gpu_entries.append((name, 0))
+                except Exception:
+                    pass
+                import glob as globmod
+                for i, (name, vram) in enumerate(gpu_entries):
+                    vram_paths = globmod.glob(f"/sys/class/drm/card{i}-device/mem_info_vram_total")
+                    if not vram_paths:
+                        vram_paths = globmod.glob(f"/sys/class/drm/card{i}/device/mem_info_vram_total")
+                    for vp in vram_paths:
+                        try:
+                            with open(vp) as f:
+                                vram_bytes = int(f.read().strip())
+                            gpu_entries[i] = (name, vram_bytes / (1024 ** 3))
+                        except (ValueError, OSError):
+                            pass
+            elif os_info == "Darwin":
+                try:
+                    result = subprocess.run(
+                        ["system_profiler", "SPDisplaysDataType"],
+                        capture_output=True, text=True, timeout=10
+                    )
+                    current_name = None
+                    for line in result.stdout.splitlines():
+                        stripped = line.strip()
+                        if stripped.startswith("Chipset Model:") or stripped.startswith("Chip Model:"):
+                            current_name = stripped.split(":", 1)[1].strip()
+                        elif stripped.startswith("VRAM (Total):") and current_name:
+                            vram_str = stripped.split(":", 1)[1].strip()
+                            gpu_entries.append((current_name, vram_str))
+                            current_name = None
+                    if current_name and current_name not in [e[0] for e in gpu_entries]:
+                        gpu_entries.append((current_name, 0))
+                except Exception:
+                    pass
+
+            for name, vram in gpu_entries:
+                left_align(f"GPU   Model: {name}")
+                if isinstance(vram, (int, float)) and vram > 0:
+                    left_align(f"GPU    VRAM: {vram:.2f} GB")
+                elif isinstance(vram, str):
+                    left_align(f"GPU    VRAM: {vram}")
 
             left_align(f"SYSTEM  RAM: {ram_total / (1024 ** 3):.2f} GB")
         except:
@@ -5121,9 +5338,9 @@ class search(model,Implement):
         name="model_name",
         method="exact",
         approach = "nwsm",
-        interface="pymprog",
+        interface="highs",
         directions=None,
-        solver="glpk",
+        solver="highs",
         dataset = None,
         key_params = [],
         key_vars = [],
@@ -5989,9 +6206,9 @@ class search(model,Implement):
             except:
                 pconfigurated = "N/A"
         import platform
+        import subprocess
         import psutil
         import cpuinfo
-        import GPUtil
         def get_system_characteristics(width=80):
             os_name = platform.system()
             if os_name == "Windows":
@@ -6004,7 +6221,6 @@ class search(model,Implement):
                 os_info = f"macOS {platform.mac_ver()[0]}"
             else:
                 os_info = f"{os_name} {platform.release()}"
-
             ci = cpuinfo.get_cpu_info()
             arch_raw = ci.get('arch_string_raw', '') or ci.get('arch', '')
             arch_l = arch_raw.lower()
@@ -6039,13 +6255,80 @@ class search(model,Implement):
                 cpu_brand = raw.split()[0] if raw else 'CPU'
             cpu_spec = raw.replace(cpu_brand, '').split('@')[0].strip()
             gpu_entries = []
-            for gpu in GPUtil.getGPUs():
-                name = gpu.name.strip()
-                if 'intel' in name.lower():
-                    gpu_entries.append(name)
-                else:
-                    vram_gb = int(round(gpu.memoryTotal / 1024))
-                    gpu_entries.append(f"{name} ({vram_gb} GB)")
+            if os_name == "Windows":
+                try:
+                    result = subprocess.run(
+                        ["powershell", "-NoProfile", "-Command",
+                        "Get-CimInstance Win32_VideoController | "
+                        "Select-Object Name, AdapterRAM | "
+                        "ForEach-Object { \"$($_.Name)|$($_.AdapterRAM)\" }"],
+                        capture_output=True, text=True, timeout=10,
+                        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)
+                    )
+                    for line in result.stdout.strip().splitlines():
+                        line = line.strip()
+                        if not line or "|" not in line:
+                            continue
+                        name, vram_bytes_str = line.split("|", 1)
+                        name = name.strip()
+                        try:
+                            vram_bytes = int(vram_bytes_str.strip())
+                        except (ValueError, TypeError):
+                            vram_bytes = 0
+                        if not name:
+                            continue
+                        if vram_bytes > 0:
+                            vram_gb = int(round(vram_bytes / (1024 ** 3)))
+                            gpu_entries.append(f"{name} ({vram_gb} GB)")
+                        else:
+                            gpu_entries.append(name)
+                except Exception:
+                    pass
+            elif os_name == "Linux":
+                try:
+                    result = subprocess.run(["lspci"], capture_output=True, text=True, timeout=10)
+                    for line in result.stdout.splitlines():
+                        lower = line.lower()
+                        if "vga" in lower or "3d" in lower or "display" in lower:
+                            parts = line.split(": ", 1)
+                            name = parts[1].strip() if len(parts) > 1 else line.strip()
+                            gpu_entries.append(name)
+                except Exception:
+                    pass
+                import glob as globmod
+                import os
+                for i, entry in enumerate(gpu_entries):
+                    vram_paths = globmod.glob(f"/sys/class/drm/card{i}-device/mem_info_vram_total")
+                    if not vram_paths:
+                        vram_paths = globmod.glob(f"/sys/class/drm/card{i}/device/mem_info_vram_total")
+                    for vp in vram_paths:
+                        try:
+                            with open(vp) as f:
+                                vram_bytes = int(f.read().strip())
+                            vram_gb = int(round(vram_bytes / (1024 ** 3)))
+                            if vram_gb > 0:
+                                gpu_entries[i] = f"{entry} ({vram_gb} GB)"
+                        except (ValueError, OSError):
+                            pass
+            elif os_name == "Darwin":
+                try:
+                    result = subprocess.run(
+                        ["system_profiler", "SPDisplaysDataType"],
+                        capture_output=True, text=True, timeout=10
+                    )
+                    current_gpu_name = None
+                    for line in result.stdout.splitlines():
+                        stripped = line.strip()
+                        if stripped.startswith("Chipset Model:") or stripped.startswith("Chip Model:"):
+                            current_gpu_name = stripped.split(":", 1)[1].strip()
+                        elif stripped.startswith("VRAM (Total):") and current_gpu_name:
+                            vram_str = stripped.split(":", 1)[1].strip()
+                            gpu_entries.append(f"{current_gpu_name} ({vram_str})")
+                            current_gpu_name = None
+                    if current_gpu_name and current_gpu_name not in gpu_entries:
+                        gpu_entries.append(current_gpu_name)
+                except Exception:
+                    pass
             if not gpu_entries:
                 if cpu_brand == 'Intel':
                     gpu_entries.append('Intel Integrated Graphics (shared)')
@@ -6060,21 +6343,22 @@ class search(model,Implement):
                 short = f"OS: {os_info} | Arch: {arch} | CPU: {cpu_brand} {cpu_spec}, {ram_gb}GB"
                 if len(short) > width - 5:
                     short = f"OS: {os_info} | Arch: {arch} | CPU: {cpu_brand} | RAM: {ram_gb}GB"
+                    return short
                 return short
             return report
 
         box.clear_columns(list_of_strings=["",f"{pconfigurated}"], label= f"Type: {ptype}", max_space_between_elements=4)
-        
+
         box.empty()
 
         if skip_system_information is False:
-            try: 
+            try:
                 box.bottom(right=get_system_characteristics())
             except:
                 box.bottom()
         else:
             box.bottom()
-    
+
     def report_model(self, style=1, width=90):
         box = report(width=width, style=style)
         # Second box: Model
