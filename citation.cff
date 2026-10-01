@@ -1,10 +1,10 @@
 cff-version: 1.2.0
 message: 'If you use this software, please cite it as follows:'
+type: software
 title: 'FelooPy: Efficient and feature-rich integrated decision environment'
 authors:
-- family-names: Tafakkori
-  given-names: Keivan
-  name: Keivan Tafakkori
+  - family-names: Tafakkori
+    given-names: Keivan
 version: 0.4.0
 date-released: '2026-10-01'
 repository-code: https://github.com/feloopy/feloopy/
@@ -12,6 +12,10 @@ license: MIT
 preferred-citation:
   type: article
   title: 'FelooPy: The Plug-and-Play OR Workflow You''ve Been Looking For'
+  authors:
+    - family-names: Tafakkori
+      given-names: Keivan
   journal: 'OR/MS Tomorrow'
-  publisher: INFORMS
+  publisher:
+    name: INFORMS
   url: 'https://www.informs.org/Publications/OR-MS-Tomorrow/FelooPy-The-Plug-and-Play-OR-Workflow-You-ve-Been-Looking-For'

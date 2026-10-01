@@ -64,6 +64,7 @@ _progress_color = "\033[36m"
 _progress_lock = threading.RLock()
 _progress_suppressed = 0
 _notebook_display_handle = None
+_notebook_completed_html = []  
 
 
 def _detect_notebook():
@@ -147,6 +148,7 @@ _BOLD_GREEN = "\033[1;32m"
 _BOLD_RED = "\033[1;31m"
 _DIM = "\033[2m"
 _RESET = "\033[0m"
+_EL = "\033[K"
 
 _SPIN_FRAMES = ["✳", "✴", "✶", "✱", "✦"]
 _CHECK = "✓"
@@ -209,6 +211,40 @@ def _cwrite(text):
         return
     sys.stdout.write(text)
     sys.stdout.flush()
+
+
+def _notebook_html(text):
+    """Render a rich Text to the HTML rich uses for Jupyter output cells.
+    """
+    from rich.console import Console
+    from rich.jupyter import _render_segments
+
+    console = Console()
+    segments = list(console.render(text, console.options))
+    while segments:
+        last = segments[-1]
+        if not last.text:
+            segments.pop()
+            continue
+        trimmed = last.text.rstrip("\n")
+        if trimmed != last.text:
+            if trimmed:
+                segments[-1] = last._replace(text=trimmed)
+            else:
+                segments.pop()
+        break
+    return _render_segments(segments).rstrip("\n")
+
+
+def _notebook_status_html(symbol, message, elapsed_str, style):
+    """Render a final ``✓ Done`` status line as notebook HTML.
+    """
+    from rich.text import Text
+
+    text = Text()
+    text.append(f"{symbol} {message}", style=style)
+    text.append(elapsed_str, style="dim")
+    return _notebook_html(text)
 
 
 @contextmanager
@@ -297,12 +333,13 @@ def update_progress(message):
             elapsed = (datetime.now() - _start_time).total_seconds()
             elapsed_str = f" {elapsed:.1f}s" if elapsed >= 1 else ""
             _cwrite(f"\r{_progress_color}{_SPIN_FRAMES[0]} "
-                    f"{_progress_message}{_DIM}{elapsed_str}{_RESET}  ")
+                    f"{_progress_message}{_DIM}{elapsed_str}{_RESET}{_EL}")
+
 
 
 def _start_progress_locked(message, spinner, show_elapsed, color):
     global _spinner_running, _spinner_thread, _is_notebook, _start_time, _show_elapsed
-    global _progress_message, _progress_color, _notebook_display_handle
+    global _progress_message, _progress_color, _notebook_display_handle, _notebook_completed_html
 
     if _spinner_thread is not None and _spinner_thread.is_alive():
         _spinner_running.clear()
@@ -319,41 +356,43 @@ def _start_progress_locked(message, spinner, show_elapsed, color):
     _progress_color = _color_code
 
     if _is_notebook:
-        from IPython.display import display
-        from rich.spinner import Spinner
-
-        def format_message():
-            elapsed_str = ""
-            if _show_elapsed:
-                elapsed_str = f" (Elapsed: {_format_elapsed(datetime.now() - _start_time)})"
-            return f"{_progress_message}{elapsed_str}"
-
+        from IPython.display import display, HTML
+        
+        _frame = [0]
+        color_map = {"cyan": "#00bcd4", "blue": "#2196f3", "green": "#4caf50", 
+                     "yellow": "#ff9800", "red": "#f44336"}
+        css_color = color_map.get(color, "#00bcd4")
+        
         def spinner_task():
             global _notebook_display_handle
             while _spinner_running.is_set():
                 try:
+                    ch = _SPIN_FRAMES[_frame[0] % len(_SPIN_FRAMES)]
+                    elapsed = (datetime.now() - _start_time).total_seconds()
+                    elapsed_str = f" {elapsed:.1f}s" if elapsed >= 1 else ""
+                    
+                    spinner_html = (f'<div style="font-family:monospace;margin:2px 0">'
+                                   f'<span style="color:{css_color};font-weight:bold">{ch} {message}</span>'
+                                   f'<span style="color:#888">{elapsed_str}</span></div>')
+                    
+                    full_html = "".join(_notebook_completed_html) + spinner_html
+                    
                     if _notebook_display_handle is None:
-                        _notebook_display_handle = display(
-                            Spinner(spinner, text=format_message()),
-                            display_id=True,
-                        )
+                        _notebook_display_handle = display(HTML(full_html), display_id=True)
                     else:
-                        _notebook_display_handle.update(
-                            Spinner(spinner, text=format_message())
-                        )
+                        _notebook_display_handle.update(HTML(full_html))
+                    
+                    _frame[0] += 1
                 except Exception:
-
-                    try:
-                        sys.stdout.write(f"\r{format_message()}          ")
-                        sys.stdout.flush()
-                    except Exception:
-                        pass
-                time.sleep(0.1)
-
+                    pass
+                time.sleep(0.08)
+        
         _spinner_running.set()
         _spinner_thread = threading.Thread(target=spinner_task, daemon=True)
         _spinner_thread.start()
+    
     else:
+
         _frame = [0]
 
         def _spinner_tick():
@@ -375,7 +414,7 @@ def _start_progress_locked(message, spinner, show_elapsed, color):
 
 
 def end_progress(success_message="Done!", failure_message=None, success=True, show_elapsed=None):
-    global _spinner_running, _spinner_thread, _notebook_display_handle
+    global _spinner_running, _spinner_thread, _notebook_display_handle, _notebook_completed_html
 
     if _progress_suppressed:
         return
@@ -386,20 +425,41 @@ def end_progress(success_message="Done!", failure_message=None, success=True, sh
     if thread is not None and thread.ident is not None:
         thread.join()
 
-    if _is_notebook:
-        handle = _notebook_display_handle
-        _notebook_display_handle = None
-        if handle is not None:
-            try:
-                handle.update("")
-            except Exception:
-                pass
-
     final_show = _show_elapsed if show_elapsed is None else show_elapsed
     elapsed_str = ""
     if final_show and _start_time:
         elapsed_str = f" ({_format_elapsed(datetime.now() - _start_time)})"
 
+    if _is_notebook:
+        from IPython.display import HTML
+        
+        symbol = _CHECK if success else _CROSS
+        css_color = "#4caf50" if success else "#f44336"
+        label = success_message if (success and success_message) else (failure_message or "")
+        
+        if label:
+            # Add this completion to the accumulated list
+            completed_html = (f'<div style="font-family:monospace;margin:2px 0">'
+                            f'<span style="color:{css_color};font-weight:bold">{symbol} {label}</span>'
+                            f'<span style="color:#888">{elapsed_str}</span></div>')
+            _notebook_completed_html.append(completed_html)
+            
+            # Update the display with all completed lines (no spinner now)
+            full_html = "".join(_notebook_completed_html)
+            
+            if _notebook_display_handle is not None:
+                try:
+                    _notebook_display_handle.update(HTML(full_html))
+                    # Keep the handle alive for next operation
+                except Exception:
+                    from IPython.display import display
+                    _notebook_display_handle = display(HTML(full_html), display_id=True)
+            else:
+                from IPython.display import display
+                _notebook_display_handle = display(HTML(full_html), display_id=True)
+        return
+
+    # Terminal mode
     _pad = " " * 40
     if success and success_message:
         _cwrite(f"\r{_BOLD_GREEN}{_CHECK} {success_message}{_DIM}{elapsed_str}{_RESET}{_pad}\n")
