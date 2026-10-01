@@ -439,7 +439,7 @@ def _heuristic_params_with_defaults(interface, solver):
     specific_comments = {}
     try:
         if interface == "mealpy" and solver:
-            from ..generators.solution import mealpy_model_generator
+            from ..generators.model import mealpy_model_generator
             import inspect
             mapping = mealpy_model_generator.module_mappings.get(solver)
             if mapping:
@@ -455,7 +455,7 @@ def _heuristic_params_with_defaults(interface, solver):
                     specific_data[pname] = default
                     specific_comments[pname] = f"Mealpy {solver} param, default={default!r}"
         elif interface == "niapy" and solver:
-            from ..generators.solution import niapy_model_generator
+            from ..generators.model import niapy_model_generator
             import inspect
             mapping = niapy_model_generator.module_mappings.get(solver)
             if mapping:

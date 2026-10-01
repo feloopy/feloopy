@@ -114,8 +114,13 @@ def floor(input):
 def ceil(input):
     return np.ceil(input)
 
-def round(input):
-    return np.round(input)
+def round(input, ndigits=None):
+    '''
+    Round to the nearest value (numpy semantics, works on scalars and arrays).
+    '''
+    if ndigits is None:
+        return np.round(input)
+    return np.round(input, ndigits)
 
 def log_of_base(input, base):
     return mt.log(input, base)

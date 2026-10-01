@@ -91,10 +91,6 @@ _register(("jump", "juliacall"), ["juliacall==0.9.24"],
           "exact", 'interface="jump" (JuMP, runs Julia)', ("jump",))
 _register(("juliapkg",), ["juliapkg"],
           "exact", "Julia depot bootstrap (ships with juliacall)")
-_register(("insideopt", "insideopt-seeker"), ["insideopt-seeker==0.1.21"],
-          "exact", 'interface="insideopt"', ("insideopt",))
-_register(("insideopt-demo",), ["insideopt-demo==0.3.3"],
-          "exact", 'interface="insideopt-demo"', ("insideopt-demo",))
 
 # --- modelling layers ------------------------------------------------------
 _register(("pulp",), ["pulp[cbc]==4.0.0; python_version >= '3.12'",
@@ -146,6 +142,10 @@ _register(("gams", "gamspy"), ["gamspy==1.26.4"],
           "commercial", "size-limited community licence", ("gams",))
 _register(("hexaly",), ["hexaly==15.0.20260914"],
           "commercial", "free trial licence", ("hexaly",))
+_register(("insideopt", "insideopt-seeker"), ["insideopt-seeker==0.1.21"],
+          "commercial", "licence from InsideOpt (free demo/licence)", ("insideopt",))
+_register(("insideopt-demo",), ["insideopt-demo==0.3.3"],
+          "commercial", "InsideOpt Seeker demo build", ("insideopt-demo",))
 
 # --- optional data & notebook features ------------------------------------
 _register(("shapely",), ["shapely"], "data", "geo sampling in data_handler")

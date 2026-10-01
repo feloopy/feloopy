@@ -63,6 +63,7 @@ _progress_bypass_fd = None
 _progress_color = "\033[36m"
 _progress_lock = threading.RLock()
 _progress_suppressed = 0
+_notebook_display_handle = None
 
 
 def _detect_notebook():
@@ -171,9 +172,6 @@ except Exception:
 def set_progress_bypass(fd):
     """Write the spinner directly to ``fd`` instead of stdout.
 
-    Used while fds 1/2 are redirected to devnull (the sensitivity
-    runner silences solver logs at the descriptor level) so the
-    spinner keeps animating on the real output stream.
     """
     global _progress_bypass_fd
     _progress_bypass_fd = fd
@@ -183,10 +181,6 @@ def _write_bypass(fd, text):
     """Write ``text`` to a saved descriptor without going through the
     redirected stdout.
 
-    On a Windows console this must use ``WriteConsoleW`` - a raw
-    ``os.write`` of UTF-8 bytes is decoded with the console codepage
-    and garbles the spinner glyphs (the diamond frames become mojibake).
-    Pipes/files get plain UTF-8 bytes, same as Python's own streams.
     """
     if sys.platform == "win32":
         try:
@@ -221,10 +215,6 @@ def _cwrite(text):
 def suppress_progress():
     """Disable the process-wide progress spinner inside this block.
 
-    ``start_progress``/``end_progress`` share module-level state, so two
-    threads running ``flp.search(...)`` at once race on the spinner thread
-    (one can join a thread another has not started yet).  Used by
-    ``flp.parallel_search``.
     """
     global _progress_suppressed
     with _progress_lock:
@@ -241,16 +231,8 @@ def suppress_output():
     """Silence stdout/stderr inside this block, including raw file
     descriptor output (solver/subprocess logs).
 
-    While the descriptors are redirected, the progress spinner keeps
-    animating on the real output stream via :func:`set_progress_bypass`.
-    When the streams have no real descriptor (notebook / captured
-    output), falls back to Python-level redirection only.
     """
-    # A null sink must never reject what it is given: this stream is opened
-    # with the locale codec (cp1252 on Windows), which cannot encode glyphs
-    # some renderers emit (the MOProgress direction arrows).  The write goes
-    # to a discarded device either way, but the UnicodeEncodeError would
-    # otherwise surface as a spurious failure of everything run under here.
+
     _devnull = open(os.devnull, 'w', encoding='utf-8', errors='replace')
     from contextlib import redirect_stdout, redirect_stderr
     _stdout_fd = _stderr_fd = None
@@ -305,10 +287,6 @@ def start_progress(message="Processing...", spinner="dots", show_elapsed=False, 
 def update_progress(message):
     """Live-update the message of a running spinner.
 
-    Long operations (e.g. the sensitivity analysis) call this while the
-    spinner is active to report what they are currently working on -
-    which parameter's impact is being analyzed - while the elapsed
-    seconds keep ticking.  No-op when no spinner is running.
     """
     global _progress_message
     if _progress_suppressed or not _spinner_running.is_set():
@@ -316,9 +294,6 @@ def update_progress(message):
     with _progress_lock:
         _progress_message = str(message)
         if not _is_notebook and _start_time is not None:
-            # redraw right away: the new message shows its diamond frame
-            # and ticking seconds immediately instead of waiting for the
-            # next tick (which a long scenario run can delay)
             elapsed = (datetime.now() - _start_time).total_seconds()
             elapsed_str = f" {elapsed:.1f}s" if elapsed >= 1 else ""
             _cwrite(f"\r{_progress_color}{_SPIN_FRAMES[0]} "
@@ -327,7 +302,13 @@ def update_progress(message):
 
 def _start_progress_locked(message, spinner, show_elapsed, color):
     global _spinner_running, _spinner_thread, _is_notebook, _start_time, _show_elapsed
-    global _progress_message, _progress_color
+    global _progress_message, _progress_color, _notebook_display_handle
+
+    if _spinner_thread is not None and _spinner_thread.is_alive():
+        _spinner_running.clear()
+        if _spinner_thread.ident is not None:
+            _spinner_thread.join(timeout=1.0)
+        _spinner_thread = None
 
     _is_notebook = _detect_notebook()
     _start_time = datetime.now()
@@ -338,7 +319,7 @@ def _start_progress_locked(message, spinner, show_elapsed, color):
     _progress_color = _color_code
 
     if _is_notebook:
-        from IPython.display import clear_output
+        from IPython.display import display
         from rich.spinner import Spinner
 
         def format_message():
@@ -348,23 +329,26 @@ def _start_progress_locked(message, spinner, show_elapsed, color):
             return f"{_progress_message}{elapsed_str}"
 
         def spinner_task():
+            global _notebook_display_handle
             while _spinner_running.is_set():
                 try:
-                    clear_output(wait=True)
-                    from rich.jupyter import print as jupyter_print
-                    jupyter_print(Spinner(spinner, text=format_message()))
+                    if _notebook_display_handle is None:
+                        _notebook_display_handle = display(
+                            Spinner(spinner, text=format_message()),
+                            display_id=True,
+                        )
+                    else:
+                        _notebook_display_handle.update(
+                            Spinner(spinner, text=format_message())
+                        )
                 except Exception:
-                    # rich/clear_output failure must not kill the animation
+
                     try:
                         sys.stdout.write(f"\r{format_message()}          ")
                         sys.stdout.flush()
                     except Exception:
                         pass
                 time.sleep(0.1)
-            try:
-                clear_output(wait=True)
-            except Exception:
-                pass
 
         _spinner_running.set()
         _spinner_thread = threading.Thread(target=spinner_task, daemon=True)
@@ -382,7 +366,6 @@ def _start_progress_locked(message, spinner, show_elapsed, color):
                     _cwrite(line)
                     _frame[0] += 1
                 except Exception:
-                    # a single failed write must not kill the animation
                     pass
                 time.sleep(0.08)
 
@@ -392,7 +375,7 @@ def _start_progress_locked(message, spinner, show_elapsed, color):
 
 
 def end_progress(success_message="Done!", failure_message=None, success=True, show_elapsed=None):
-    global _spinner_running, _spinner_thread
+    global _spinner_running, _spinner_thread, _notebook_display_handle
 
     if _progress_suppressed:
         return
@@ -404,8 +387,13 @@ def end_progress(success_message="Done!", failure_message=None, success=True, sh
         thread.join()
 
     if _is_notebook:
-        from IPython.display import clear_output
-        clear_output(wait=True)
+        handle = _notebook_display_handle
+        _notebook_display_handle = None
+        if handle is not None:
+            try:
+                handle.update("")
+            except Exception:
+                pass
 
     final_show = _show_elapsed if show_elapsed is None else show_elapsed
     elapsed_str = ""

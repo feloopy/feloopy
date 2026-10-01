@@ -239,10 +239,13 @@ def build_parser():
                     "arguments are required: which options are accepted "
                     "depends on the pair.",
     )
-    params_parser.add_argument("interface", help="Interface name, e.g. highs, gurobi, cvxpy, mealpy")
-    params_parser.add_argument("solver",
+    params_parser.add_argument("interface", nargs="?", metavar="INTERFACE",
+                               help="Interface name, e.g. highs, gurobi, cvxpy, mealpy "
+                                    "(required)")
+    params_parser.add_argument("solver", nargs="?", metavar="SOLVER",
                                help="Solver/algorithm behind that interface, "
-                                    "e.g. gurobi, cbc, osqp, pso")
+                                    "e.g. highs, cbc, osqp, pso (required too — "
+                                    "an interface alone never decides the options)")
     params_parser.add_argument("--json", action="store_true", help="Print JSON instead of a code snippet")
     params_parser.set_defaults(func=cli_params)
 
@@ -374,13 +377,9 @@ def build_parser():
 
 def main(argv=None):
     """Entry point (``feloopy``/``flp``/``fly``).
-
-    ``argv`` defaults to ``sys.argv[1:]`` and is only meant for tests.
     """
     argv = list(sys.argv[1:]) if argv is None else list(argv)
 
-    # ``-v`` / ``-version`` / ``--version`` are accepted anywhere and always
-    # win, so ``flp -v`` and ``flp solvers -v`` behave the same way.
     wanted, first_positional = _scan_version_flags(argv)
     if wanted:
         cli_version()
@@ -405,8 +404,6 @@ def main(argv=None):
     elif args.command and getattr(args, "func", None):
         args.func(args)
     else:
-        # A bare invocation always shows the welcome banner + wizard;
-        # explicit commands and flags (-v, --help, ...) behave as before.
         if not argv and maybe_welcome():
             return
         parser.print_help()

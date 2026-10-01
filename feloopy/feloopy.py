@@ -1416,7 +1416,7 @@ class model(
         clear_console()
         self.report(**kwargs)
         
-    def report(self, style=1, skip_system_information=True, show_elements=True, width=78, skip=False, full=False, save=None, copy_to_clipboard=False, show_tensors=None):
+    def report(self, style=1, skip_system_information=True, show_elements=True, width=78, skip=False, full=False, save=None, copy_to_clipboard=False, show_tensors=None, diagnostics=False):
         if show_tensors is not None:
             show_elements = not show_tensors
         self.number_of_objectives = self.features['objective_counter'][0]
@@ -1441,7 +1441,7 @@ class model(
                             self.solutions[j] = val
                     except:
                         pass
-        ReportEngine(self).report_search(style=style, skip_system_information=skip_system_information, show_elements=show_elements, width=width, skip=skip, full=full, save=save, copy_to_clipboard=copy_to_clipboard)
+        ReportEngine(self).report_search(style=style, skip_system_information=skip_system_information, show_elements=show_elements, width=width, skip=skip, full=full, save=save, copy_to_clipboard=copy_to_clipboard, diagnostics=diagnostics)
         return self
 
     def get_numpy_var(self, var_name, dual=False, slack=False, reduced_cost=False):
@@ -2976,7 +2976,7 @@ class Implement:
         clear_console()
         self.report(**kwargs)
         
-    def report(self, style=1, skip_system_information=True, show_elements=True, width=78, skip=False, full=False, save=None, copy_to_clipboard=False, show_tensors=None):
+    def report(self, style=1, skip_system_information=True, show_elements=True, width=78, skip=False, full=False, save=None, copy_to_clipboard=False, show_tensors=None, diagnostics=False):
         if show_tensors is not None:
             show_elements = not show_tensors
         self.em = self.model_data
@@ -2990,7 +2990,7 @@ class Implement:
         self.debug = getattr(self, 'debug', False)
         if not hasattr(self, 'key_vars'):
             self.key_vars = []
-        ReportEngine(self).report_search(style=style, skip_system_information=skip_system_information, show_elements=show_elements, width=width, skip=skip, full=full, save=save, copy_to_clipboard=copy_to_clipboard)
+        ReportEngine(self).report_search(style=style, skip_system_information=skip_system_information, show_elements=show_elements, width=width, skip=skip, full=full, save=save, copy_to_clipboard=copy_to_clipboard, diagnostics=diagnostics)
         return self
 
     def get_numpy_var(self, var_name):
@@ -8579,6 +8579,12 @@ class search(model,Implement):
             not apply rather than a section that found nothing.
         """
         eng = ReportEngine(self)
+        # A default report deferred the constraint-batch pass; this is the
+        # diagnostics accessor, so run it now (it stays silent).
+        try:
+            eng._flush_pending_batch_impact(self, progress=False)
+        except Exception:
+            pass
         _batches = list(getattr(self, 'sensitivity_batch_data', None) or [])
         try:
             _lp = eng._collect_lp_analysis()
@@ -8717,7 +8723,7 @@ class search(model,Implement):
         clear_console()
         self.report(**kwargs)
         
-    def report(self, style=1, skip_system_information=True, show_elements=True, width=78, skip=False, full=False, save=None, copy_to_clipboard=False, hidden_variables=False, show_info=False, show_tensors=None):
+    def report(self, style=1, skip_system_information=True, show_elements=True, width=78, skip=False, full=False, save=None, copy_to_clipboard=False, hidden_variables=False, show_info=False, show_tensors=None, diagnostics=False):
         """Print the full formatted report.
 
         Combines specs, data, metrics, objectives, and decisions into a
@@ -8747,6 +8753,12 @@ class search(model,Implement):
         show_tensors : bool, optional
             If ``True``, pack tensors instead of showing individual elements.
             Overrides ``show_elements`` with inverted logic (default ``None``).
+        diagnostics : bool, optional
+            If ``True``, run the Diagnostics section: constraint-batch impact
+            (one extra solve per batch) and the LP analysis -- a dual/slack
+            query per constraint plus the variables sitting on a bound
+            (default ``False``).  An infeasible model is always explained
+            through its conflicting constraints either way.
         markdown : bool, optional
             If ``True``, output the report in Markdown format (default ``False``).
         """
@@ -8757,20 +8769,8 @@ class search(model,Implement):
             self.em.cpt = self.cpt
             self.em.report(style=style, save=save, width=width, show_elements=show_elements, hidden_variables=hidden_variables)
         else:
-            ReportEngine(self).report_search(style=style, skip_system_information=skip_system_information, show_elements=show_elements, width=width, skip=skip, full=full, save=save, copy_to_clipboard=copy_to_clipboard, hidden_variables=hidden_variables, show_info=show_info)
+            ReportEngine(self).report_search(style=style, skip_system_information=skip_system_information, show_elements=show_elements, width=width, skip=skip, full=full, save=save, copy_to_clipboard=copy_to_clipboard, hidden_variables=hidden_variables, show_info=show_info, diagnostics=diagnostics)
         return self
-
-    def report_explain(self, style=1, width=78):
-        """Print a narrative summary of the model, solution, and sensitivity analysis.
-
-        Parameters
-        ----------
-        style : int, optional
-            Box-drawing style (default 1).
-        width : int, optional
-            Table width in characters (default 78).
-        """
-        ReportEngine(self).report_explain(style=style, width=width)
 
     def save_io(self,name,extra=None):
         """Export inputs and outputs to a JSON file.

@@ -172,6 +172,34 @@ COMMERCIAL_GUIDES: Dict[str, dict] = {
         "use": "no dedicated interface yet - use through interface=\"gams\" or interface=\"jump\"",
         "docs": "https://www.artelys.com/app/knitro/",
     },
+    "insideopt": {
+        "title": "InsideOpt Seeker",
+        "summary": "commercial global/linear optimizer (InsideOpt Seeker)",
+        "pip": ["insideopt-seeker"],
+        "license": [
+            "Seeker is licensed per machine: its client_machine.sio file goes",
+            "to InsideOpt, who send the licence back - buy a real licence or",
+            "request a free demo licence at info@insideopt.com.",
+            "Install steps: https://insideopt.com/pages/install-insideopt-seeker",
+        ],
+        "verify": "python -c \"import seeker\"",
+        "use": "interface=\"insideopt\", solver=\"seeker\"",
+        "docs": "https://insideopt.com",
+    },
+    "insideopt-demo": {
+        "title": "InsideOpt Seeker (demo)",
+        "summary": "demo distribution of the commercial InsideOpt Seeker optimizer",
+        "pip": ["insideopt-demo"],
+        "license": [
+            "Demo build of Seeker, installed straight from pip.",
+            "Licences for Seeker (free demo or commercial) are issued by",
+            "InsideOpt on request: info@insideopt.com",
+            "Install steps: https://insideopt.com/pages/install-insideopt-seeker",
+        ],
+        "verify": "python -c \"import seekerdemo\"",
+        "use": "interface=\"insideopt-demo\", solver=\"seeker\"",
+        "docs": "https://insideopt.com",
+    },
 }
 
 #: Spellings feloopy interfaces use that map onto a canonical guide.
@@ -210,6 +238,11 @@ COMMERCIAL_ALIASES: Dict[str, str] = {
     "baron": "baron",
     "conopt": "conopt",
     "knitro": "knitro",
+    "insideopt": "insideopt",
+    "insideopt-seeker": "insideopt",
+    "seeker": "insideopt",
+    "insideopt-demo": "insideopt-demo",
+    "seekerdemo": "insideopt-demo",
 }
 
 

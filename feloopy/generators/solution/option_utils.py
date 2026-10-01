@@ -203,7 +203,7 @@ def get_algo_options(solver_name, interface):
 
     if interface == "mealpy":
         try:
-            from . import mealpy_model_generator
+            from ..model import mealpy_model_generator
             mapping = mealpy_model_generator.module_mappings.get(solver_name)
             if mapping:
                 module_name, class_name, model_name = mapping
@@ -225,7 +225,7 @@ def get_algo_options(solver_name, interface):
 
     elif interface == "niapy":
         try:
-            from . import niapy_model_generator
+            from ..model import niapy_model_generator
             mapping = niapy_model_generator.module_mappings.get(solver_name)
             if mapping:
                 module_name, class_name, model_name = mapping

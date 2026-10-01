@@ -13,6 +13,10 @@ from numbers import Number
 from typing import Any, Sequence, Optional
 from ._lazy import pl
 
+# Sentinel for "argument not given" in report internals, where ``None`` is a
+# meaningful value of its own (an unsolved model has no baseline objective).
+_UNSET = object()
+
 
 def _is_modern_terminal():
     env = os.environ
@@ -2315,7 +2319,8 @@ class ReportEngine:
 
     def report_search(self, style=1, skip_system_information=True,
                       show_elements=False, width=78, skip=False, full=False,
-                      save=None, copy_to_clipboard=False, hidden_variables=False, show_info=False):
+                      save=None, copy_to_clipboard=False, hidden_variables=False, show_info=False,
+                      diagnostics=False):
 
         p = self._p
 
@@ -2342,7 +2347,7 @@ class ReportEngine:
                     start_progress(message="Analyzing...", spinner="dots",
                                    color="cyan", show_elapsed=True)
                     try:
-                        self._try_auto_sensitivity(p)
+                        self._try_auto_sensitivity(p, diagnostics=diagnostics)
                         end_progress(success_message="Analyzed",
                                      show_elapsed=False)
                     except Exception:
@@ -2350,6 +2355,11 @@ class ReportEngine:
                                      failure_message="Analysis failed",
                                      success=False, show_elapsed=False)
                         raise
+
+            # Constraint-batch impact a default report deferred: run it now
+            # that diagnostics were asked for (a no-op otherwise).
+            if diagnostics:
+                self._flush_pending_batch_impact(p)
 
             # Resolve what makes an infeasible model infeasible before any
             # box is rendered: native IIS where the interface has one, the
@@ -2369,7 +2379,7 @@ class ReportEngine:
                 self.report_formulation(style=style, width=width, box=box)
             self.report_metrics(style=style, width=width, box=box)
             self.report_decision(style=style, key_vars=p.key_vars, show_elements=show_elements, width=width, skip=skip, box=box, hidden_variables=hidden_variables)
-            self.report_diagnostics(style=style, width=width, box=box)
+            self.report_diagnostics(style=style, width=width, box=box, diagnostics=diagnostics)
             self.report_sensitivity(style=style, width=width, box=box)
             self.report_benchmark(style=style, width=width, box=box)
             if show_info:
@@ -3483,16 +3493,21 @@ class ReportEngine:
         if not box._buffered:
             box.render()
 
-    def report_diagnostics(self, style=1, width=78, box=None):
+    def report_diagnostics(self, style=1, width=78, box=None, diagnostics=True):
         """Constraint-batch impact, LP analysis and infeasibility in one box.
 
         Rendered directly after the Decision box by ``report_search`` and
         silent when there is nothing to diagnose.
+
+        ``diagnostics=False`` (what ``report()`` passes by default) does no
+        constraint- or variable-based work: the LP analysis -- a dual/slack
+        query per constraint plus a scan of the variables sitting on a bound
+        -- and the constraint-batch rows are both skipped.  Infeasibility is
+        the exception: it is always resolved, so an infeasible model still
+        explains which constraints conflict.
         """
         p = self._p
 
-        _batch_rows = getattr(p, 'sensitivity_batch_data', None) or []
-        _lp = self._collect_lp_analysis()
         if getattr(p, '_diagnostics_iis', None) is None:
             try:
                 _iis = self._resolve_infeasibility(p)
@@ -3500,6 +3515,12 @@ class ReportEngine:
                 _iis = None
         else:
             _iis = p._diagnostics_iis
+
+        if diagnostics:
+            _batch_rows = getattr(p, 'sensitivity_batch_data', None) or []
+            _lp = self._collect_lp_analysis()
+        else:
+            _batch_rows, _lp = [], None
 
         if not _batch_rows and _lp is None and _iis is None:
             return
@@ -6560,7 +6581,206 @@ class ReportEngine:
                 _n_changed += 1
         return _n_changed / _n_total if _n_total > 0 else 0.0
 
-    def _try_auto_sensitivity(self, p):
+    def _collect_batch_impact(self, p, baseline_objectives=_UNSET,
+                              baseline_cpt=_UNSET, env=None,
+                              message="Analyzing batch"):
+        """Constraint-batch impact: re-solve once per declared batch without it.
+
+        Fills ``p.sensitivity_batch_data`` with one record per batch and
+        returns the list.  The two absolutes are the model WITHOUT the batch
+        (the counterfactual), while dObj%/dT% read the other way round: they
+        are measured against that without-model, so a positive number says
+        the constraint EXISTING raises the objective / adds solving time and
+        a negative one says it pulls them down.  (No batches -> no extra
+        runs.)
+
+        ``baseline_objectives``/``baseline_cpt``/``env`` describe the model
+        as it was before any sweep re-solve and default to the state at
+        entry, which is what a standalone call wants.  Everything the loop
+        disturbs is snapshotted and restored, so this is also safe to run
+        outside a sensitivity sweep -- that is how a later
+        ``report(diagnostics=True)`` fills in the rows a default report
+        deliberately skipped.
+        """
+        import copy as _copy
+        from ..helpers.formatter import suppress_output, update_progress
+
+        p.sensitivity_batch_data = []
+        p._batch_impact_pending = False
+        try:
+            _batch_registry = ReportEngine._problem_batches(
+                p.em.features.get('constraint_batches'))
+        except Exception:
+            _batch_registry = {}
+        if not _batch_registry:
+            return p.sensitivity_batch_data
+
+        _MISSING = object()
+        _boost = ('_benders_result', '_cg_result', '_lagrangian_result',
+                  '_branching_result')
+        _by_ref = ('em', 'cpt', 'mgt', '_exclude_batches') + _boost
+        _by_copy = ('objective_values', 'solutions', 'data')
+        _snap = {a: getattr(p, a, _MISSING) for a in _by_ref}
+        for _a in _by_copy:
+            _v = getattr(p, _a, _MISSING)
+            if _v is _MISSING:
+                _snap[_a] = _MISSING
+                continue
+            try:
+                _snap[_a] = _copy.deepcopy(_v)
+            except Exception:
+                _snap[_a] = _v
+
+        def _restore():
+            for _a, _v in _snap.items():
+                if _v is _MISSING:
+                    try:
+                        delattr(p, _a)
+                    except AttributeError:
+                        pass
+                else:
+                    setattr(p, _a, _v)
+
+        def _clear_stale_results():
+            for _a in _boost:
+                try:
+                    delattr(p, _a)
+                except AttributeError:
+                    pass
+            p.objective_values = None
+
+        try:
+            _n_obj = p.number_of_objectives
+            _base_obj = (_snap['objective_values']
+                         if baseline_objectives is _UNSET
+                         else baseline_objectives)
+            _batch_full_obj = ReportEngine._aggregate_objective_static(
+                _base_obj, _n_obj == 1)
+            _batch_full_means = ReportEngine._objective_means(
+                _base_obj, _n_obj)
+            if baseline_cpt is _UNSET:
+                _batch_full_time = (_snap['cpt']
+                                    if _snap['cpt'] is not _MISSING
+                                    else None)
+            else:
+                _batch_full_time = baseline_cpt
+            _env = getattr(p, 'environment', None) if env is None else env
+            for _bname, _bentry in _batch_registry.items():
+                update_progress(f"{message} {_bname}")
+                _rec = {'name': _bname,
+                        'n': len(_bentry.get('elements', ()) or ()),
+                        'obj_full': _batch_full_obj,
+                        'obj_full_means': _batch_full_means,
+                        'obj_full_pct_k': None,
+                        'time_full': _batch_full_time,
+                        'obj_without': None, 'obj_delta': None,
+                        'obj_pct': None, 'time_without': None,
+                        'obj_without_means': None, 'obj_pct_k': None,
+                        'time_pct': None, 'status': 'FAIL'}
+                try:
+                    p._exclude_batches = (_bname,)
+                    with suppress_output():
+                        _clear_stale_results()
+                        p.create_env(_env, verbose=True)
+                        p.run(verbose=True)
+                    _rec['time_without'] = getattr(p, 'cpt', None)
+                    try:
+                        _bh = p.em.healthy()
+                    except Exception:
+                        _bh = None
+                    if _bh is True and p.objective_values is not None:
+                        _bobj = ReportEngine._aggregate_objective_static(
+                            p.objective_values, p.number_of_objectives == 1)
+                        _bmeans = ReportEngine._objective_means(
+                            p.objective_values, _n_obj)
+                        _rec['obj_without'] = _bobj
+                        _rec['obj_without_means'] = _bmeans
+                        _rec['status'] = 'OK'
+                        try:
+                            if _batch_full_obj is not None and _bobj is not None:
+                                # baseline = the model without the batch, so
+                                # +X% reads as "keeping this constraint costs
+                                # X% of objective".
+                                _d = float(_batch_full_obj) - float(_bobj)
+                                _rec['obj_delta'] = _d
+                                if abs(float(_bobj)) > 1e-12:
+                                    _rec['obj_pct'] = (_d / abs(float(_bobj))
+                                                       * 100.0)
+                            # same read, kept apart per objective: each
+                            # column is the change in that objective's
+                            # average across the front
+                            if (_batch_full_means is not None
+                                    and _bmeans is not None
+                                    and len(_batch_full_means) == len(_bmeans)):
+                                _pct_k = []
+                                for _fk, _wk in zip(_batch_full_means,
+                                                    _bmeans):
+                                    if _wk is None or abs(float(_wk)) <= 1e-12:
+                                        _pct_k.append(None)
+                                        continue
+                                    _pct_k.append(
+                                        (float(_fk) - float(_wk))
+                                        / abs(float(_wk)) * 100.0)
+                                _rec['obj_pct_k'] = _pct_k
+                                _rec['obj_full_pct_k'] = list(_batch_full_means)
+                            if (_batch_full_time is not None
+                                    and _rec['time_without'] is not None
+                                    and float(_rec['time_without']) > 1e-12):
+                                _rec['time_pct'] = (
+                                    (float(_batch_full_time) - float(_rec['time_without']))
+                                    / float(_rec['time_without']) * 100.0)
+                        except (TypeError, ValueError):
+                            pass
+                    elif _bh is False:
+                        _rec['status'] = 'INFEAS'
+                except Exception:
+                    _rec['status'] = 'FAIL'
+                finally:
+                    p._exclude_batches = None
+                p.sensitivity_batch_data.append(_rec)
+        finally:
+            _restore()
+
+        return p.sensitivity_batch_data
+
+    def _flush_pending_batch_impact(self, p, progress=True):
+        """Run the constraint-batch impact pass a default report deferred.
+
+        ``report(diagnostics=False)`` skips it (every batch costs a full
+        re-solve) and flags the leftover work with ``_batch_impact_pending``;
+        a later call that does ask for diagnostics runs it here.  Returns the
+        records, or ``None`` when nothing was deferred.
+        """
+        if not getattr(p, '_batch_impact_pending', False):
+            return None
+        try:
+            _reg = ReportEngine._problem_batches(
+                getattr(p, 'em', p).features.get('constraint_batches'))
+        except Exception:
+            _reg = {}
+        if not _reg:
+            # nothing to re-solve: don't flash a spinner for an empty pass
+            p._batch_impact_pending = False
+            p.sensitivity_batch_data = []
+            return p.sensitivity_batch_data
+        from ..helpers.formatter import start_progress, end_progress
+        if progress:
+            start_progress(message="Analyzing batches...", spinner="dots",
+                           color="cyan", show_elapsed=True)
+        try:
+            _rows = self._collect_batch_impact(p)
+        except Exception:
+            if progress:
+                end_progress(success_message=None,
+                             failure_message="Analysis failed",
+                             success=False, show_elapsed=False)
+            p._batch_impact_pending = False
+            return None
+        if progress:
+            end_progress(success_message="Analyzed", show_elapsed=False)
+        return _rows
+
+    def _try_auto_sensitivity(self, p, diagnostics=True):
         import time as _time
         import copy as _copy
         import numpy as _np
@@ -6923,98 +7143,17 @@ class ReportEngine:
 
         # --- Constraint batch add/remove sensitivity ---------------------
         # Re-solve once per declared constraint batch with that batch
-        # excluded.  The two absolutes are the model WITHOUT the batch (the
-        # counterfactual), while dObj%/dT% read the other way round: they are
-        # measured against that without-model, so a positive number says the
-        # constraint EXISTING raises the objective / adds solving time and a
-        # negative one says it pulls them down.  (No batches -> no extra runs.)
-        p.sensitivity_batch_data = []
-        try:
-            _batch_registry = ReportEngine._problem_batches(
-                p.em.features.get('constraint_batches'))
-        except Exception:
-            _batch_registry = {}
-        if _batch_registry:
-            from ..helpers.formatter import suppress_output
-            _n_obj = p.number_of_objectives
-            _batch_full_obj = ReportEngine._aggregate_objective_static(
-                _orig_objective_values, p.number_of_objectives == 1)
-            _batch_full_means = ReportEngine._objective_means(
-                _orig_objective_values, _n_obj)
-            _batch_full_time = _orig_cpt
-            for _bname, _bentry in _batch_registry.items():
-                update_progress(f"Analyzing batch {_bname}")
-                _rec = {'name': _bname,
-                        'n': len(_bentry.get('elements', ()) or ()),
-                        'obj_full': _batch_full_obj,
-                        'obj_full_means': _batch_full_means,
-                        'obj_full_pct_k': None,
-                        'time_full': _batch_full_time,
-                        'obj_without': None, 'obj_delta': None,
-                        'obj_pct': None, 'time_without': None,
-                        'obj_without_means': None, 'obj_pct_k': None,
-                        'time_pct': None, 'status': 'FAIL'}
-                try:
-                    p._exclude_batches = (_bname,)
-                    with suppress_output():
-                        _clear_stale_results()
-                        p.create_env(_env, verbose=True)
-                        p.run(verbose=True)
-                    _rec['time_without'] = getattr(p, 'cpt', None)
-                    try:
-                        _bh = p.em.healthy()
-                    except Exception:
-                        _bh = None
-                    if _bh is True and p.objective_values is not None:
-                        _bobj = ReportEngine._aggregate_objective_static(
-                            p.objective_values, p.number_of_objectives == 1)
-                        _bmeans = ReportEngine._objective_means(
-                            p.objective_values, _n_obj)
-                        _rec['obj_without'] = _bobj
-                        _rec['obj_without_means'] = _bmeans
-                        _rec['status'] = 'OK'
-                        try:
-                            if _batch_full_obj is not None and _bobj is not None:
-                                # baseline = the model without the batch, so
-                                # +X% reads as "keeping this constraint costs
-                                # X% of objective".
-                                _d = float(_batch_full_obj) - float(_bobj)
-                                _rec['obj_delta'] = _d
-                                if abs(float(_bobj)) > 1e-12:
-                                    _rec['obj_pct'] = (_d / abs(float(_bobj))
-                                                       * 100.0)
-                            # same read, kept apart per objective: each
-                            # column is the change in that objective's
-                            # average across the front
-                            if (_batch_full_means is not None
-                                    and _bmeans is not None
-                                    and len(_batch_full_means) == len(_bmeans)):
-                                _pct_k = []
-                                for _fk, _wk in zip(_batch_full_means,
-                                                    _bmeans):
-                                    if _wk is None or abs(float(_wk)) <= 1e-12:
-                                        _pct_k.append(None)
-                                        continue
-                                    _pct_k.append(
-                                        (float(_fk) - float(_wk))
-                                        / abs(float(_wk)) * 100.0)
-                                _rec['obj_pct_k'] = _pct_k
-                                _rec['obj_full_pct_k'] = list(_batch_full_means)
-                            if (_batch_full_time is not None
-                                    and _rec['time_without'] is not None
-                                    and float(_rec['time_without']) > 1e-12):
-                                _rec['time_pct'] = (
-                                    (float(_batch_full_time) - float(_rec['time_without']))
-                                    / float(_rec['time_without']) * 100.0)
-                        except (TypeError, ValueError):
-                            pass
-                    elif _bh is False:
-                        _rec['status'] = 'INFEAS'
-                except Exception:
-                    _rec['status'] = 'FAIL'
-                finally:
-                    p._exclude_batches = None
-                p.sensitivity_batch_data.append(_rec)
+        # excluded -- one extra solve per batch, so it only runs when the
+        # caller asked for diagnostics.  Otherwise the pass is deferred and
+        # flagged; ``_flush_pending_batch_impact`` runs it the next time
+        # diagnostics ARE requested.
+        if diagnostics:
+            self._collect_batch_impact(
+                p, baseline_objectives=_orig_objective_values,
+                baseline_cpt=_orig_cpt, env=_env)
+        else:
+            p.sensitivity_batch_data = []
+            p._batch_impact_pending = True
 
         p.sensitivity_end_timer = _time.time()
 
@@ -7045,199 +7184,6 @@ class ReportEngine:
 
         return p.sensitivity_data
 
-    def report_explain(self, style=1, width=78, box=None):
-        import numpy as _np
-        p = self._p
-        if box is None:
-            box = report(width=width, style=style)
-        if not hasattr(p, 'em') or p.em is None:
-            box.top(left="Explain")
-            box.row(left="  No model results available.")
-            box.bottom()
-            if not box._buffered:
-                box.render()
-            return
-
-        sd = getattr(p, 'sensitivity_data', None)
-
-        _method = getattr(p, 'method', 'unknown')
-        _is_heuristic = _method == 'heuristic'
-        _is_madm = _method == 'madm'
-        _is_sequential = _method == 'sequential'
-        _is_constraint = _method == 'constraint'
-        _is_uncertain = _method == 'uncertain'
-
-        if sd is None and not _is_madm and not _is_sequential:
-            sd = self._try_auto_sensitivity(p)
-        _n_obj = getattr(p, 'number_of_objectives', 0)
-        _is_single = _n_obj == 1
-        _is_multi = _n_obj > 1
-
-        _n_vars = 0
-        _n_cons = 0
-        _n_obj_feat = 0
-        try:
-            _n_vars = p.em.features.get('total_variable_counter', [0, 0])[1]
-            _n_cons = p.em.features.get('constraint_counter', [0, 0])[1]
-            _n_obj_feat = p.em.features.get('objective_counter', [0, 0])[1]
-        except Exception:
-            pass
-
-        _directions = getattr(p, 'directions', []) or []
-        _interface = getattr(p, 'interface', 'unknown')
-        _solver = getattr(p, 'solver', 'unknown')
-        _healthy = p.healthy()
-
-        _prog_type = '?'
-        _auto_lin = False
-        _orig_type = None
-        _al_type = None
-        try:
-            _prog_type = p.em.features.get('problem_type', '?')
-            _auto_lin = p.em.features.get('_auto_lin_active', False)
-            if _auto_lin:
-                _orig_type = p.em.features.get('original_problem_type', '?')
-                _al_type = p.em.features.get('al_problem_type', '?')
-        except Exception:
-            pass
-
-        _has_bvar = False
-        _has_ivar = False
-        _has_pvar = False
-        _has_fvar = False
-        try:
-            _has_bvar = p.em.features.get('binary_variable_counter', [0, 0])[0] > 0
-            _has_ivar = p.em.features.get('integer_variable_counter', [0, 0])[0] > 0
-            _has_pvar = p.em.features.get('positive_variable_counter', [0, 0])[0] > 0
-            _has_fvar = p.em.features.get('free_variable_counter', [0, 0])[0] > 0
-        except Exception:
-            pass
-
-        if _is_madm:
-            _type_label = "Multi-Attribute Decision Making"
-        elif _is_sequential:
-            _type_label = "Sequential Decision"
-        elif _is_single:
-            _type_label = "Single-objective"
-        elif _is_multi:
-            _type_label = "Multi-objective"
-        else:
-            _type_label = "Unknown"
-
-        box.top(left="Explain")
-
-        if not _healthy:
-            box.row(left="  The model is infeasible or the solver failed.")
-            box.row(left="  No valid solution was found.")
-        elif sd is None and not _is_madm and not _is_sequential:
-            box.row(left="  No sensitivity analysis was performed.")
-            box.row(left="  Run sensitivity() or set scenarios for impact assessment.")
-        else:
-            if _is_single and not _is_madm:
-                try:
-                    _obj = p.objective_values[0][0] if p.objective_values is not None else None
-                    _ogr = p.get_ogr()
-                    if _obj is not None:
-                        _d = _directions[0] if _directions else 'min'
-                        if _ogr is not None and _ogr == 0:
-                            box.row(left=f"  The solver found an optimal solution with objective {format_string(_obj)} ({_d}).")
-                        elif _ogr is not None and _ogr < 0.01:
-                            box.row(left=f"  The solver found a near-optimal solution with objective {format_string(_obj)} ({_d}).")
-                        else:
-                            box.row(left=f"  The solver found a solution with objective {format_string(_obj)} ({_d}).")
-                except Exception:
-                    pass
-
-            if _is_multi and not _is_madm:
-                try:
-                    _n_pareto = 0
-                    if hasattr(p, 'solutions') and isinstance(p.solutions, dict):
-                        _n_pareto = len(p.solutions)
-                    elif hasattr(p, 'num_objective_values'):
-                        _n_pareto = p.num_objective_values
-                    if _n_pareto > 0:
-                        box.row(left=f"  The solver found {_n_pareto} Pareto-optimal solutions.")
-                    _n_obj = len(_directions) if _directions else 0
-                    if _n_obj > 0:
-                        _dir_str = ", ".join([f"{_d}" for _d in _directions[:_n_obj]])
-                        box.row(left=f"  Optimizing {_n_obj} objectives: [{_dir_str}].")
-                except Exception:
-                    pass
-
-            if _is_heuristic:
-                try:
-                    _repeat = getattr(p, 'repeat', 1)
-                    _stg = getattr(p, 'stg', None)
-                    if _repeat > 1:
-                        box.row(left=f"  The heuristic was run {_repeat} times and the best result was kept.")
-                    if _stg is not None and _stg > 0.8:
-                        box.row(left=f"  The search stagnated (STG={format_string(_stg)}), suggesting limited exploration.")
-                except Exception:
-                    pass
-
-            if _is_single and _healthy and not _is_madm:
-                try:
-                    _sol = p.solutions
-                    _key_vars = getattr(p, 'key_vars', []) or []
-                    if _sol and isinstance(_sol, dict):
-                        _n_active = 0
-                        _n_total = 0
-                        for k, v in _sol.items():
-                            if k.startswith('_') or 'autolin' in k or 'sos2' in k or 'rdiv' in k:
-                                continue
-                            if _key_vars and k not in _key_vars:
-                                continue
-                            if isinstance(v, _np.ndarray):
-                                _n_total += v.size
-                                _n_active += int(_np.count_nonzero(v))
-                            elif isinstance(v, (list, tuple)):
-                                _n_total += len(v)
-                                _n_active += sum(1 for x in v if x != 0)
-                            elif isinstance(v, (int, float)):
-                                _n_total += 1
-                                if v != 0:
-                                    _n_active += 1
-                        if _n_total > 0 and _n_active > 0:
-                            if _n_total == 1:
-                                box.row(left=f"  The decision variable is active (non-zero).")
-                            else:
-                                box.row(left=f"  The solution activates {_n_active} out of {_n_total} decision elements.")
-                except Exception:
-                    pass
-
-            if _is_multi and _healthy and not _is_madm:
-                try:
-                    _sol = p.solutions
-                    _key_vars = getattr(p, 'key_vars', []) or []
-                    if _sol and isinstance(_sol, dict):
-                        _n_pareto = len(_sol)
-                        _n_active_total = 0
-                        _n_total_total = 0
-                        for _pidx, _psol in _sol.items():
-                            if isinstance(_psol, dict):
-                                for k, v in _psol.items():
-                                    if k.startswith('_') or 'autolin' in k or 'sos2' in k or 'rdiv' in k:
-                                        continue
-                                    if _key_vars and k not in _key_vars:
-                                        continue
-                                    if isinstance(v, _np.ndarray):
-                                        _n_total_total += v.size
-                                        _n_active_total += int(_np.count_nonzero(v))
-                                    elif isinstance(v, (list, tuple)):
-                                        _n_total_total += len(v)
-                                        _n_active_total += sum(1 for x in v if x != 0)
-                                    elif isinstance(v, (int, float)):
-                                        _n_total_total += 1
-                                        if v != 0:
-                                            _n_active_total += 1
-                        if _n_pareto > 0 and _n_active_total > 0:
-                            box.row(left=f"  {_n_pareto} Pareto solutions activate {_n_active_total} total decision elements.")
-                except Exception:
-                    pass
-
-        box.bottom()
-        if not box._buffered:
-            box.render()
 
 
 from .._version import __version__, __release_month__, __release_year__

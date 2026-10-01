@@ -11,7 +11,7 @@ subcommands::
     feloopy algorithms -c heuristic    # list metaheuristics
     feloopy algorithms -i mealpy -s pso
     feloopy algorithms -c exact --available --json
-    feloopy params gurobi gurobi      # options for flp.search(interface=...,
+    feloopy params highs highs      # options for flp.search(interface=...,
                                       # solver=..., options={})
     feloopy info                       # environment summary
 
@@ -82,8 +82,8 @@ SOLVER_INTERFACES = {
     "jump":             InterfaceProbe("exact", "module", "juliacall", "juliacall", "JuMP, runs through Julia"),
     "mathopt":          InterfaceProbe("exact", "module", "ortools", "ortools", "Google MathOpt (via OR-Tools)"),
     "pyoptinterface":   InterfaceProbe("exact", "module", "pyoptinterface", "pyoptinterface", "needs a backend (highs/gurobi/copt/mosek)"),
-    "insideopt":        InterfaceProbe("exact", "module", "seeker", "insideopt-seeker", "InsideOpt Seeker"),
-    "insideopt-demo":   InterfaceProbe("exact", "module", "seekerdemo", "insideopt-demo", "InsideOpt Seeker demo"),
+    "insideopt":        InterfaceProbe("exact", "module", "seeker", "insideopt-seeker", "commercial (free demo license)"),
+    "insideopt-demo":   InterfaceProbe("exact", "module", "seekerdemo", "insideopt-demo", "commercial (InsideOpt Seeker demo)"),
 
     # --- modeling layers / meta-solvers ------------------------------------
     "cvxpy":            InterfaceProbe("modeling", "module", "cvxpy", "cvxpy", "dispatches to an installed CVXPY solver"),
@@ -445,7 +445,10 @@ def cli_params(args=None):
 
     Needs the full interface + solver pair: which options are passable
     depends on both halves (``cvxpy`` behaves differently behind ``cbc``
-    and behind ``osqp``; ``mealpy`` behind ``pso`` and behind ``de``).
+    and behind ``osqp``; ``mealpy`` behind ``pso`` and behind ``de``),
+    so an interface on its own is rejected.  The printed stdout is
+    exactly ``flp.get_params(interface, solver)`` for that pair — nothing
+    is added to it.
     """
     args = args if args is not None else _Namespace()
     interface = getattr(args, "interface", None)
@@ -454,9 +457,12 @@ def cli_params(args=None):
 
     if not interface or not solver:
         print("Usage: flp params <interface> <solver>", file=sys.stderr)
-        print("Both halves are needed — the passable options depend on the "
-              "pair.", file=sys.stderr)
-        print("Run 'feloopy solvers' for interfaces.", file=sys.stderr)
+        print("Both halves are needed — an interface on its own does not "
+              "decide the options: the passable ones depend on the pair.",
+              file=sys.stderr)
+        print("Run 'feloopy solvers' for interfaces and "
+              "'feloopy algorithms -i <interface>' for the solvers behind it.",
+              file=sys.stderr)
         sys.exit(2)
 
     from ..helpers.solver_params import get_solver_params
@@ -497,13 +503,10 @@ def cli_params(args=None):
                   for key, value in options.items()})
         return
 
-    if hasattr(options, "to_code"):
-        print(options.to_code())
-    else:  # pragma: no cover - fallback
-        print(dict(options))
-
-    print(f'# usage: flp.search(model, interface="{interface}", '
-          f'solver="{solver}", options={{...}})')
+    # ``CommentedDict.__str__`` is its ``to_code()`` snippet, so stdout is
+    # byte-identical to ``print(flp.get_params(interface, solver))`` — no
+    # extra header/trailer lines are appended.
+    print(options)
 
 
 # ---------------------------------------------------------------------------
