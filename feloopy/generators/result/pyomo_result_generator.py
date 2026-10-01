@@ -1,7 +1,40 @@
 # Copyright (c) 2022-2026, Keivan Tafakkori. All rights reserved.
 # See the file LICENSE file for licensing details.
 
+import ast
+
 import pyomo.environ as pyomo_interface
+
+
+def _split_query(query):
+    if '[' not in query or not query.endswith(']'):
+        return query, None
+    base, inner = query.rsplit('[', 1)
+    inner = inner[:-1]
+    try:
+        key = ast.literal_eval(f'({inner},)')
+        if len(key) == 1:
+            key = key[0]
+    except (ValueError, SyntaxError):
+        key = inner
+    return base, key
+
+
+def _resolve_variable(model_object, input2):
+    if not isinstance(input2, str) and hasattr(input2, 'value'):
+        return input2.value
+    if not isinstance(input2, str):
+        return pyomo_interface.value(input2)
+    base, key = _split_query(input2)
+    comp = model_object.component(base)
+    if comp is not None and key is not None:
+        try:
+            return pyomo_interface.value(comp[key])
+        except Exception:
+            return None
+    if comp is not None:
+        return pyomo_interface.value(comp)
+    return None
 
 
 def Get(model_object, result, input1, input2=None):
@@ -12,7 +45,7 @@ def Get(model_object, result, input1, input2=None):
 
         case 'variable':
 
-            return pyomo_interface.value(input2)
+            return _resolve_variable(model_object, input2)
 
         case 'status':
 
@@ -25,10 +58,17 @@ def Get(model_object, result, input1, input2=None):
         case 'time':
 
             return (result[1][1]-result[1][0])
+
+        case 'bound':
+
+            return None
         
         case 'dual':
 
-            return model_object.dual[model_object.c[input2]]
+            try:
+                return model_object.dual[model_object.c[input2]]
+            except Exception:
+                return None
 
         case 'slack':
 

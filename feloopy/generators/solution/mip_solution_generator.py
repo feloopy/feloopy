@@ -40,7 +40,7 @@ def generate_solution(features):
 
     match debug:
 
-        case False:
+        case False | True:
 
             for constraint in model_constraints:
                 model_object += constraint
@@ -52,6 +52,9 @@ def generate_solution(features):
                 case "max":
                     model_object.objective = mip_interface.maximize(
                         model_objectives[objective_id])
+
+            from ..init_generator import flush_init
+            flush_init(features, force=True)
 
             time_solve_begin = timeit.default_timer()
             result = model_object.optimize()

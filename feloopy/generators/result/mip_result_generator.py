@@ -25,3 +25,15 @@ def Get(model_object, result, input1, input2=None):
         case 'time':
 
             return (result[1][1]-result[1][0])
+
+        case 'bound':
+
+            return model_object.objective_bound
+
+        case 'dual':
+
+            return None
+
+        case 'slack':
+
+            return None

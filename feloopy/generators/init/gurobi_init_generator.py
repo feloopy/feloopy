@@ -9,4 +9,13 @@ def set_init_value(features, variable, value, fix):
         variable.ub = value
     else:
         variable.Start = value
-     
+
+def set_branch_priority(features, variable, priority):
+    variable.BranchPriority = priority
+
+def set_var_hint(variable, hint_val, hint_pri=0):
+    variable.VarHintVal = hint_val
+    variable.VarHintPri = hint_pri
+
+def set_pwlobj(variable, x_vals, y_vals):
+    variable.PWLObj = list(zip(x_vals, y_vals))

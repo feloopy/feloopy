@@ -2,7 +2,6 @@
 # See the file LICENSE file for licensing details.
 
 import os
-import argparse
 import getpass
 try:
     import tkinter as tk
@@ -15,72 +14,11 @@ import shutil
 import zipfile
 import subprocess
 import sys
-import urllib.request
-from tqdm import tqdm
 from datetime import datetime
 from .._version import __version__
 
 __version__ = f"v{__version__}"
 
-def download_and_extract(url, output_folder, filename):
-   print(f"Downloading and unpacking {filename}")
-   with urllib.request.urlopen(url) as url:
-       f = open(filename, 'wb')
-       total_size = int(url.info().get("Content-Length", 0))
-       chunk_size = 1024 # 1 KB
-       pbar = tqdm(total=total_size, unit='iB', unit_scale=True)
-       for data in iter(lambda: url.read(chunk_size), b''):
-           f.write(data)
-           pbar.update(len(data))
-       f.close()
-       pbar.close()
-
-   if "zip" in filename:
-    shutil.unpack_archive(filename, output_folder)
-    os.remove(filename)
-   elif "tar" in filename:
-    shutil.unpack_archive(filename, output_folder, format='gztar')
-    os.remove(filename)
-
-def ask_for_directory():
- root = tk.Tk()
- root.withdraw()
- return filedialog.askdirectory()
-
-def run_setup_file():
- try:
-     install_dir = ask_for_directory()
- except Exception:
-     install_dir = input("Enter the directory where you want to install the solvers: ")
-
- os.chdir(install_dir)
-
- os.makedirs("solvers", exist_ok=True)
-
- versions = {
-     "cbc": ("2.10.12", "https://github.com/coin-or/Cbc/releases/download/releases%2F{version}/Cbc-releases.{version}-x86_64-w64-mingw64.zip"),
-     "highs": ("1.7.2", "https://github.com/JuliaBinaryWrappers/HiGHSstatic_jll.jl/releases/download/HiGHSstatic-v{version}%2B0/HiGHSstatic.v{version}.x86_64-w64-mingw32.tar.gz"),
-     "ipopt": ("3.14.16", "https://github.com/coin-or/Ipopt/releases/download/releases%2F{version}/Ipopt-{version}-win64-msvs2019-md.zip"),
-     "glpk": ("4.65", "https://sourceforge.net/projects/winglpk/files/winglpk/GLPK-{version}/winglpk-{version}.zip/download"),
-     "bonmin": ("1.4.0", "https://www.coin-or.org/download/binary/Bonmin/Bonmin-{version}-win32-msvc9.zip"),
-     "couenne": ("0.3.2", "https://www.coin-or.org/download/binary/Couenne/Couenne-{version}-win32-msvc9.zip"),
-     "scip": ("9.1.1", "https://github.com/scipopt/scip/releases/download/v{version_no_dots}/SCIPOptSuite-{version}-win64-VS15.exe"),
-     "git": ("2.47.0", "https://github.com/git-for-windows/git/releases/download/v{version}.windows.1/Git-{version}-64-bit.exe"),
- }
-
- for solver, (version, url) in versions.items():
-    url = url.format(version=version, version_no_dots=version.replace(".", ""))
-    output_folder = os.path.join("solvers", solver + "-windows")
-    if "zip" in url.lower():
-        filename = os.path.join("solvers", solver + "-windows.zip")
-    if "tar" in url.lower():
-        filename = os.path.join("solvers", solver + "-windows.tar.gz")
-    if "exe" in url.lower():
-        filename = os.path.join("solvers", solver + "-windows.exe")
-    try:
-        download_and_extract(url, output_folder, filename)
-    except:
-        pass
 def create_optimization_project(project_name, directory=".", project_type=None):
 
    project_dir = os.path.join(directory, project_name)
@@ -156,7 +94,8 @@ def run_project(file_path):
             print(f"Error running the project: {e}")
 
 def julia_install(packages):
-    from juliacall import Main as jl
+    from ..helpers.julia_server import get_jl
+    jl = get_jl()
     for package in packages:
         try:
             jl.seval(f'import Pkg; Pkg.add("{package}")')
@@ -165,7 +104,8 @@ def julia_install(packages):
             print(f"Error installing {package} with Julia Pkg: {e}")
 
 def julia_uninstall(packages):
-    from juliacall import Main as jl
+    from ..helpers.julia_server import get_jl
+    jl = get_jl()
     for package in packages:
         try:
             jl.seval(f'import Pkg; Pkg.rm("{package}")')
@@ -237,7 +177,9 @@ def cli_version():
     print(f"FelooPy ({__version__})")
 
 def cli_project(args):
-    directory = select_directory()
+    directory = getattr(args, "directory", None)
+    if not directory:
+        directory = select_directory()
     if directory:
         create_optimization_project(args.name, directory, args.type)
 

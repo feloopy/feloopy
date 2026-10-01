@@ -16,3 +16,6 @@ wheelhouse/*
 feloopy/extensions/*
 tests/*
 private_wheels/*
+models/*
+.github/scripts/rollback.ps1
+test.py

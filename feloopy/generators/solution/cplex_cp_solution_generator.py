@@ -8,7 +8,7 @@ from docplex.util.environment import get_environment
 import timeit
 
 env = get_environment()
-cplex_solver_selector = {'cplex': 'cplex'}
+cplex_solver_selector = {'cplex': 'cplex', 'cplex_cp': 'cplex'}
 
 def generate_solution(features):
     model_object = features['model_object_before_solve']
@@ -47,7 +47,12 @@ def generate_solution(features):
             model_object.add(constraint)
 
         time_solve_begin = timeit.default_timer()
-        result = model_object.solve(TimeLimit=time_limit)
+        solve_kwargs = {}
+        if time_limit is not None:
+            solve_kwargs['TimeLimit'] = time_limit
+        from ..init_generator import flush_init
+        flush_init(features, force=True)
+        result = model_object.solve(**solve_kwargs)
         time_solve_end = timeit.default_timer()
 
         generated_solution = [result, [time_solve_begin, time_solve_end]]

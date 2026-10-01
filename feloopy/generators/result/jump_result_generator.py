@@ -2,7 +2,6 @@
 # See the file LICENSE file for licensing details.
 
 from ...helpers.formatter import *
-from juliacall import Main as jl
 
 def Get(model_object, result, input1, input2=None):
 
@@ -25,6 +24,10 @@ def Get(model_object, result, input1, input2=None):
         case 'time':
 
             return (result[1][1]-result[1][0])
+
+        case 'bound':
+
+            return result[0].get("objective_bound")
 
         case 'dual':
             

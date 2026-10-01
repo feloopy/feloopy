@@ -10,4 +10,7 @@ from .event_variable_collection import *
 from .normal_constraint import *
 from .special_constraint import *
 from .linearization import *
+from .iis import *
 from .constraint_programming import *
+from .cvxpy_expression import *
+from .incremental import *

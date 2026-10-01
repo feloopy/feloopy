@@ -1,9 +1,7 @@
 # Copyright (c) 2022-2026, Keivan Tafakkori. All rights reserved.
 # See the file LICENSE file for licensing details.
 
-def generate_model(solver_name, solver_options):
-
-    module_mappings = {
+module_mappings = {
 
 
         'artificialbeecolonyalgorithm-abc': ('niapy.algorithms.basic', 'abc', 'ArtificialBeeColonyAlgorithm'),
@@ -89,6 +87,9 @@ def generate_model(solver_name, solver_options):
         'simulatedannealing-sa': ('niapy.algorithms.other', 'sa', 'SimulatedAnnealing'),
     }
 
+
+def generate_model(solver_name, solver_options):
+
     module_name, class_name, model_name = module_mappings.get(solver_name, (None, None, None))
 
     if module_name and class_name and model_name:
@@ -99,6 +100,6 @@ def generate_model(solver_name, solver_options):
 
     else:
     
-        raise ValueError("Invalid solver name. Please refer to https://feloopy.readthedocs.io/en/latest/heuristic.html")
-
+        raise ValueError("Invalid solver name. Run 'print(flp.HEURISTIC_ALGORITHMS)' to see the available options.")
+    
     return model_object

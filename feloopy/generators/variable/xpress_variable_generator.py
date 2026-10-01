@@ -14,76 +14,60 @@ INTEGER = xpress_interface.integer
 
 def generate_variable(model_object, variable_type, variable_name, variable_bound, variable_dim=0):
 
-    if variable_bound[0] == None:
-        variable_bound[0] = -INFINITY
+    bound = list(variable_bound)
+    lb = bound[0] if bound[0] is not None else -INFINITY
+    ub = bound[1] if bound[1] is not None else +INFINITY
 
-    if variable_bound[1] == None:
-        variable_bound[1] = +INFINITY
+    def _get_keys():
+        if isinstance(variable_dim, set):
+            return list(variable_dim)
+        elif len(variable_dim) == 1:
+            return list(variable_dim[0])
+        else:
+            return list(sets(*variable_dim))
+
+    def _make_scalar():
+        v = model_object.addVariable(name=variable_name, lb=lb, ub=ub)
+        return v
+
+    def _make_array(keys):
+        vs = [model_object.addVariable(name=f"{variable_name}{key}", lb=lb, ub=ub) for key in keys]
+        return dict(zip(keys, vs))
+
+    def _make_binary_scalar():
+        v = model_object.addVariable(name=variable_name, vartype=BINARY)
+        return v
+
+    def _make_binary_array(keys):
+        vs = [model_object.addVariable(name=f"{variable_name}{key}", vartype=BINARY) for key in keys]
+        return dict(zip(keys, vs))
+
+    def _make_integer_scalar():
+        v = model_object.addVariable(name=variable_name, lb=lb, ub=ub, vartype=INTEGER)
+        return v
+
+    def _make_integer_array(keys):
+        vs = [model_object.addVariable(name=f"{variable_name}{key}", lb=lb, ub=ub, vartype=INTEGER) for key in keys]
+        return dict(zip(keys, vs))
 
     match variable_type:
 
         case 'pvar':
-
             if variable_dim == 0:
-                generated_variable = VariableGenerator(lb=variable_bound[0], ub=variable_bound[1])
-                model_object.addVariable(generated_variable)
-            else:
-                if isinstance(variable_dim,set):
-                    generated_variable = [VariableGenerator(lb=variable_bound[0], ub=variable_bound[1]) for key in variable_dim]
-                    model_object.addVariable(generated_variable)
-                elif len(variable_dim) == 1:
-                    generated_variable = [VariableGenerator(lb=variable_bound[0], ub=variable_bound[1]) for key in variable_dim[0]]
-                    model_object.addVariable(generated_variable)
-                else:
-                    generated_variable = {key: VariableGenerator(name=f"{variable_name}{key}", lb=variable_bound[0], ub=variable_bound[1]) for key in sets(*variable_dim)}
-                    model_object.addVariable(generated_variable)
+                return _make_scalar()
+            return _make_array(_get_keys())
 
         case 'bvar':
-
             if variable_dim == 0:
-                generated_variable = VariableGenerator(vartype=BINARY)
-                model_object.addVariable(generated_variable)
-            else:
-                if isinstance(variable_dim,set):
-                    generated_variable = [VariableGenerator(vartype=BINARY) for key in variable_dim]
-                    model_object.addVariable(generated_variable)                
-                elif len(variable_dim) == 1:
-                    generated_variable = [VariableGenerator(vartype=BINARY) for key in variable_dim[0]]
-                    model_object.addVariable(generated_variable)
-                else:
-                    generated_variable = {key: VariableGenerator(name=f"{variable_name}{key}", lb=variable_bound[0], ub=variable_bound[1], vartype=BINARY) for key in sets(*variable_dim)}
-                    model_object.addVariable(generated_variable)
+                return _make_binary_scalar()
+            return _make_binary_array(_get_keys())
 
         case 'ivar':
-
             if variable_dim == 0:
-                generated_variable = VariableGenerator(vartype=INTEGER)
-                model_object.addVariable(generated_variable)
-            else:
-                if isinstance(variable_dim,set):
-                    generated_variable = {key: VariableGenerator(vartype=INTEGER) for key in variable_dim}
-                    model_object.addVariable(generated_variable)
-                elif len(variable_dim) == 1:
-                    generated_variable = {key: VariableGenerator(vartype=INTEGER) for key in variable_dim[0]}
-                    model_object.addVariable(generated_variable)
-                else:
-                    generated_variable = {key: VariableGenerator(name=f"{variable_name}{key}", lb=variable_bound[0], ub=variable_bound[1], vartype=INTEGER) for key in sets(*variable_dim)}
-                    model_object.addVariable(generated_variable)
+                return _make_integer_scalar()
+            return _make_integer_array(_get_keys())
 
-        case 'fvar':
-
+        case 'fvar' | 'rvar' | 'dvar':
             if variable_dim == 0:
-                generated_variable = VariableGenerator(lb=variable_bound[0], ub=variable_bound[1])
-                model_object.addVariable(generated_variable)
-            else:
-                if isinstance(variable_dim,set):
-                    generated_variable = [VariableGenerator(lb=variable_bound[0], ub=variable_bound[1]) for key in variable_dim]
-                    model_object.addVariable(generated_variable)          
-                if len(variable_dim) == 1:
-                    generated_variable = [VariableGenerator(lb=variable_bound[0], ub=variable_bound[1]) for key in variable_dim[0]]
-                    model_object.addVariable(generated_variable)
-                else:
-                    generated_variable = {key: VariableGenerator(name=f"{variable_name}{key}", lb=variable_bound[0], ub=variable_bound[1]) for key in sets(*variable_dim)}
-                    model_object.addVariable(generated_variable)
-
-    return generated_variable
+                return _make_scalar()
+            return _make_array(_get_keys())

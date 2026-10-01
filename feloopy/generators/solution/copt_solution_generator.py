@@ -35,16 +35,19 @@ def generate_solution(features):
             "Using solver '%s' is not supported by 'copt'! \nPossible fixes: \n1) Check the solver name. \n2) Use another interface. \n" % (solver_name))
 
     if time_limit != None:
-        model_object.setParam(COPT.Param.TimeLimit, time_limit)
+        try:
+            model_object.setParam(COPT.Param.TimeLimit, time_limit)
+        except Exception:
+            pass
 
     if thread_count != None:
         model_object.setParam(COPT.Param.Threads, thread_count)
 
     if relative_gap != None:
-        model_object.setParam(COPT.Param.MIPGap, relative_gap)
+        model_object.setParam(COPT.Param.RelGap, relative_gap)
 
     if absolute_gap != None:
-        model_object.setParam(COPT.Param.MIPGapAbs, absolute_gap)
+        model_object.setParam(COPT.Param.AbsGap, absolute_gap)
 
     if log:
     
@@ -59,13 +62,20 @@ def generate_solution(features):
         model_object.setLogFile(f'{save}.log')
 
     if len(solver_options) != 0:
-
         for key in solver_options:
-            model_object.setParam(key, solver_options[key])
+            if key.startswith("---"):
+                continue
+            val = solver_options[key]
+            if val is None:
+                continue
+            try:
+                model_object.setParam(key, val)
+            except Exception:
+                pass
 
     match debug:
 
-        case False:
+        case False | True:
 
             match directions[objective_id]:
                 case "min":
@@ -83,6 +93,9 @@ def generate_solution(features):
             if save_model != False:
 
                 model_object.write(save_model)
+
+            from ..init_generator import flush_init
+            flush_init(features, force=True)
 
             time_solve_begin = timeit.default_timer()
             result = model_object.solve()

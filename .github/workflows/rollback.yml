@@ -1,0 +1,58 @@
+name: Rollback Repository
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit:
+        description: 'Commit hash to roll back to'
+        required: true
+      force:
+        description: 'Skip confirmation'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  rollback:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate commit
+        env:
+          COMMIT_INPUT: ${{ inputs.commit }}
+        run: |
+          if [[ ! "$COMMIT_INPUT" =~ ^[0-9a-f]{7,40}$ ]]; then
+            echo "Error: Invalid commit hash format. Must be 7-40 hex characters."
+            exit 1
+          fi
+          if ! git rev-parse --verify "$COMMIT_INPUT" >/dev/null 2>&1; then
+            echo "Error: Commit '$COMMIT_INPUT' not found."
+            exit 1
+          fi
+
+      - name: Show rollback info
+        env:
+          COMMIT_INPUT: ${{ inputs.commit }}
+        run: |
+          echo "============================================"
+          echo "  REPOSITORY ROLLBACK"
+          echo "============================================"
+          echo ""
+          echo "  Current:  $(git rev-parse --short HEAD)"
+          echo "  Target:   $(git rev-parse --short "$COMMIT_INPUT")"
+          echo "  Message:  $(git log --oneline -1 "$COMMIT_INPUT")"
+
+      - name: Reset to commit
+        env:
+          COMMIT_INPUT: ${{ inputs.commit }}
+        run: git reset --hard "$COMMIT_INPUT"
+
+      - name: Force push
+        run: git push --force origin "${{ github.ref_name }}"

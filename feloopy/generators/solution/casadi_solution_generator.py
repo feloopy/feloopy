@@ -43,16 +43,20 @@ def generate_solution(features):
     if thread_count is not None:
         solver_opts['max_cpu_time'] = thread_count
     if log:
-        solver_opts['print_level'] = 5
+        solver_opts['ipopt.print_level'] = 5
     if max_iterations is not None:
         solver_opts['max_iter'] = max_iterations
 
     for key, value in solver_options.items():
+        if key.startswith("---"):
+            continue
+        if value is None:
+            continue
         solver_opts[key] = value
 
     match debug:
 
-        case False:
+        case False | True:
 
             # Set Objective
             match directions[objective_id]:
@@ -74,6 +78,8 @@ def generate_solution(features):
 
             # Solve the problem
             model_object.solver(solver_name, solver_opts)
+            from ..init_generator import flush_init
+            flush_init(features, force=True)
             time_solve_begin = timeit.default_timer()
             result = model_object.solve()
             time_solve_end = timeit.default_timer()

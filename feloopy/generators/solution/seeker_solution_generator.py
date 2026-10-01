@@ -1,8 +1,32 @@
 # Copyright (c) 2022-2026, Keivan Tafakkori. All rights reserved.
 # See the file LICENSE file for licensing details.
 
-seeker_solver_selector = {'seeker': 'seeker'}
 import timeit
+
+seeker_solver_selector = {'seeker': 'seeker'}
+
+
+def _enforce_constraint(model_object, constraint):
+    if not isinstance(constraint, list) or len(constraint) < 3:
+        return
+
+    lhs = constraint[0]
+    sense = constraint[1]
+    rhs = constraint[2]
+
+    if sense in ['<=', 'le', 'leq', '=l=']:
+        model_object.enforce_leq(lhs, rhs)
+    elif sense in ['>=', 'ge', 'geq', '=g=']:
+        model_object.enforce_geq(lhs, rhs)
+    elif sense in ['==', 'eq', '=e=']:
+        model_object.enforce_eq(lhs, rhs)
+    elif sense in ['<', 'lt']:
+        model_object.enforce_lt(lhs, rhs)
+    elif sense in ['>', 'gt']:
+        model_object.enforce_gt(lhs, rhs)
+    elif sense in ['!=', 'neq']:
+        model_object.enforce_neq(lhs, rhs)
+
 
 def generate_solution(features):
 
@@ -10,81 +34,58 @@ def generate_solution(features):
     model_objectives = features['objectives']
     model_constraints = features['constraints']
     directions = features['directions']
-    constraint_labels = features['constraint_labels']
     debug = features['debug_mode']
     time_limit = features['time_limit']
-    absolute_gap = features['absolute_gap']
-    relative_gap = features['relative_gap']
     thread_count = features['thread_count']
     solver_name = features['solver_name']
     objective_id = features['objective_being_optimized']
     log = features['log']
-    save = features['save_solver_log']
-    save_model = features['write_model_file']
     max_iterations = features['max_iterations']
     solver_options = features['solver_options']
 
     if solver_name not in seeker_solver_selector.keys():
-        raise RuntimeError("Using solver '%s' is not supported by 'seeker'! \nPossible fixes: \n1) Check the solver name. \n2) Use another interface. \n" % (solver_name))
+        raise RuntimeError(
+            "Using solver '%s' is not supported by 'seeker'! "
+            "\nPossible fixes: \n1) Check the solver name. "
+            "\n2) Use another interface. " % solver_name)
 
-    if time_limit != None:
-        timeLimit = time_limit
+    for constraint in model_constraints:
+        _enforce_constraint(model_object, constraint)
+
+    time_limit_val = time_limit if time_limit is not None else 1e9
+    lower_bound = solver_options.get('lb', -1e20)
+    upper_bound = solver_options.get('ub', 1e20)
+
+    if thread_count is not None:
+        try:
+            model_object.set_parameters({"NumberOfThreads": thread_count})
+        except Exception:
+            pass
+
+    if max_iterations is not None:
+        try:
+            model_object.set_parameters({"MaxIterations": max_iterations})
+        except Exception:
+            pass
+
+    user_params = {
+        k: v for k, v in solver_options.items()
+        if k not in ('lb', 'ub', 'license') and not k.startswith("---") and v is not None
+    }
+    if user_params:
+        try:
+            model_object.set_parameters(user_params)
+        except Exception:
+            pass
+
+    direction = directions[objective_id]
+    objective = model_objectives[objective_id]
+
+    time_solve_begin = timeit.default_timer()
+    if direction == 'min':
+        model_object.minimize(objective, lowerBound=lower_bound, timeLimit=time_limit_val)
     else:
-        timeLimit = 1e9
-        
-    if "lb" in solver_options.keys():
-        lowerBound = solver_options['lb']
-    else:
-        lowerBound = -1e20
+        model_object.maximize(objective, upperBound=upper_bound, timeLimit=time_limit_val)
+    time_solve_end = timeit.default_timer()
 
-    if "ub" in solver_options.keys():
-        upperBound = solver_options['ub']
-    else:
-        upperBound = 1e20
-        
-    match debug:
-
-        case False:
-
-            counter=0
-
-            for constraint in model_constraints:
-  
-                if constraint[1] in ['<=', 'le', 'leq', '=l=']:
-                    model_object.enforce_leq(constraint[0], constraint[2])
-                            
-                if constraint[1] in ['>=', 'ge', 'geq', '=g=']:
-                    model_object.enforce_geq(constraint[0], constraint[2])
-
-                if constraint[1] in ['==', 'eq', '=e=']:
-                    model_object.enforce_eq(constraint[0], constraint[2])
-
-                if constraint[1] in ['<', 'lt']:
-                    model_object.enforce_lt(constraint[0], constraint[2])
-                    
-                if constraint[1] in ['>', 'gt']:
-                    model_object.enforce_gt(constraint[0], constraint[2])
-                                      
-                if constraint[1] in ['!=', 'neq']:
-                    model_object.enforce_neq(constraint[0], constraint[2])
-
-                counter+=1
-
-            match directions[objective_id]:
-
-                case 'min':
-                    time_solve_begin = timeit.default_timer()
-                    model_object.minimize(model_objectives[objective_id], lowerBound=lowerBound, timeLimit=timeLimit)
-                    time_solve_end = timeit.default_timer()
-                    objective = model_objectives[objective_id]
-                    
-                case 'max':
-                    time_solve_begin = timeit.default_timer()
-                    model_object.maximize(model_objectives[objective_id], upperBound=upperBound, timeLimit=timeLimit)
-                    time_solve_end = timeit.default_timer()
-                    objective = model_objectives[objective_id]
-                    
-
-            generated_solution = [objective, [time_solve_begin, time_solve_end]]
-
-    return generated_solution
+    return [objective, [time_solve_begin, time_solve_end]]

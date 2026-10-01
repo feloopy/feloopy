@@ -30,6 +30,20 @@ def generate_solution(features):
     else:
         display=False
 
+    from ...helpers.solver_executables import require_python_solver
+    _backing = {'scipy': ('scipy', 'scipy'),
+                'cylp': ('cylp', 'cylp'),
+                'ortools': ('ortools', 'ortools'),
+                'ecos': ('ecos', 'ecos'),
+                'gurobi': ('gurobi', 'gurobipy'),
+                'cplex': ('cplex', 'cplex'),
+                'mosek': ('mosek', 'mosek'),
+                'copt': ('copt', 'coptpy'),
+                'cvxpy': ('cvxpy', 'cvxpy')}
+    _need = _backing.get(solver_name)
+    if _need:
+        require_python_solver(*_need)
+
     if solver_name =='scipy':
         from rsome import lpg_solver
         solver = lpg_solver
@@ -65,30 +79,40 @@ def generate_solution(features):
     elif solver_name =='cvxpy':
         from rsome import cvx_solver
         solver = cvx_solver
-
+        
     else:
         raise RuntimeError(
             "Using solver '%s' is not supported by 'rsome_dro'! \nPossible fixes: \n1) Check the solver name. \n2) Use another interface. \n" % (solver_name))
 
     match debug:
 
-        case False:
+        case False | True:
 
-            match directions[objective_id]:
+            is_minsup_maxinf = len(obj_operators) > 0 and obj_operators[objective_id] in ('sup', 'inf')
 
-                case "min":
-                    if len(obj_operators)==0:                    
-                        model_object.min(model_objectives[objective_id])
-                    elif obj_operators[objective_id] == 'sup':
-                        model_object.minsup(*model_objectives[objective_id])
-                case "max":
-                    if len(obj_operators)==0:
-                        model_object.max(model_objectives[objective_id])
-                    elif obj_operators[objective_id] == 'inf':
-                        model_object.maxinf(*model_objectives[objective_id])
+            _already_set = features.get('_objective_already_set', False)
 
-            for constraint in model_constraints:
-                model_object.st(constraint)
+            if not _already_set:
+
+                if is_minsup_maxinf:
+                    ambset = model_object.ambiguity()
+
+                match directions[objective_id]:
+
+                    case "min":
+                        if len(obj_operators)==0:                    
+                            model_object.min(model_objectives[objective_id])
+                        elif obj_operators[objective_id] == 'sup':
+                            model_object.minsup(model_objectives[objective_id], ambset)
+                    case "max":
+                        if len(obj_operators)==0:
+                            model_object.max(model_objectives[objective_id])
+                        elif obj_operators[objective_id] == 'inf':
+                            model_object.maxinf(model_objectives[objective_id], ambset)
+
+            if not _already_set:
+                for constraint in model_constraints:
+                    model_object.st(constraint)
 
             time_solve_begin = timeit.default_timer()
             result = model_object.solve(solver,display,solver_options)

@@ -4,56 +4,37 @@
 import itertools as it
 sets = it.product
 
+
+def _make_continuous(model_object, lb, ub):
+    return model_object.continuous(low=lb, high=ub)
+
+
+def _make_categorical(model_object, lb, ub):
+    return model_object.categorical(low=lb, high=ub)
+
+
+def _make_vars(model_object, variable_type, lb, ub, variable_dim):
+    if variable_type in ('pvar', 'fvar', 'rvar', 'dvar', 'ftvar', 'ptvar'):
+        factory = lambda: _make_continuous(model_object, lb, ub)
+    elif variable_type in ('bvar', 'btvar'):
+        factory = lambda: _make_categorical(model_object, 0, 1)
+    elif variable_type in ('ivar', 'itvar'):
+        factory = lambda: _make_categorical(model_object, lb, ub)
+    else:
+        factory = lambda: _make_continuous(model_object, lb, ub)
+
+    if variable_dim == 0:
+        return factory()
+
+    if isinstance(variable_dim, set):
+        return {key: factory() for key in variable_dim}
+
+    if len(variable_dim) == 1:
+        return {key: factory() for key in variable_dim[0]}
+
+    return {key: factory() for key in sets(*variable_dim)}
+
+
 def generate_variable(model_object, variable_type, variable_name, variable_bound, variable_dim=0):
-
-    match variable_type:
-
-        case 'pvar':
-
-            if variable_dim == 0:
-                generated_variable = model_object.continuous(low=variable_bound[0], high=variable_bound[1])
-            else:
-                if isinstance(variable_dim,set):
-                    generated_variable = {key: model_object.continuous(low=variable_bound[0], high=variable_bound[1]) for key in variable_dim}
-                elif len(variable_dim) == 1:
-                    generated_variable = {key: model_object.continuous(low=variable_bound[0], high=variable_bound[1]) for key in variable_dim[0]}
-                else:
-                    generated_variable = {key: model_object.continuous(low=variable_bound[0], high=variable_bound[1]) for key in sets(*variable_dim)}
-
-        case 'bvar':
-
-            if variable_dim == 0:
-                generated_variable = model_object.categorical(low=0, high=1)
-            else:
-                if isinstance(variable_dim,set):
-                    generated_variable = {key: model_object.categorical(low=0, high=1) for key in variable_dim}
-                elif len(variable_dim) == 1:
-                    generated_variable = {key: model_object.categorical(low=0, high=1) for key in variable_dim[0]}
-                else:
-                    generated_variable = {key: model_object.categorical(low=0, high=1) for key in sets(*variable_dim)}
-
-        case 'ivar':
-
-            if variable_dim == 0:
-                generated_variable = model_object.categorical(low=variable_bound[0], high=variable_bound[1])
-            else:
-                if isinstance(variable_dim,set):
-                    generated_variable = {key: model_object.categorical(low=variable_bound[0], high=variable_bound[1]) for key in variable_dim}
-                elif len(variable_dim) == 1:
-                    generated_variable = {key: model_object.categorical(low=variable_bound[0], high=variable_bound[1]) for key in variable_dim[0]}
-                else:
-                    generated_variable = {key: model_object.categorical(low=variable_bound[0], high=variable_bound[1])  for key in sets(*variable_dim)}
-
-        case 'fvar':
-
-            if variable_dim == 0:
-                generated_variable = model_object.continuous(low=variable_bound[0], high=variable_bound[1])
-            else:
-                if isinstance(variable_dim,set):
-                    generated_variable = {key: model_object.continuous(low=variable_bound[0], high=variable_bound[1]) for key in variable_dim}
-                elif len(variable_dim) == 1:
-                    generated_variable = {key: model_object.continuous(low=variable_bound[0], high=variable_bound[1]) for key in variable_dim[0]}
-                else:
-                    generated_variable = {key: model_object.continuous(low=variable_bound[0], high=variable_bound[1]) for key in sets(*variable_dim)}
-
-    return generated_variable
+    lb, ub = variable_bound[0], variable_bound[1]
+    return _make_vars(model_object, variable_type, lb, ub, variable_dim)

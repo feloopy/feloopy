@@ -36,7 +36,7 @@ def generate_solution(features):
 
     match debug:
 
-        case False:
+        case False | True:
 
             match directions[objective_id]:
                 case 'min':

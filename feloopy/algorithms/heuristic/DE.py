@@ -37,6 +37,11 @@ class DE:
 
         if self.r == 0:
             self.pi = np.random.rand(self.t, self.single_objective_tot)
+            init = getattr(self, 'init_solutions', None)
+            if init is not None:
+                init = np.atleast_2d(init)
+                n = min(init.shape[0], self.t)
+                self.pi[:n, :self.f] = init[:n, :self.f]
             self.pi[:, self.new_reward_col] = - np.inf * self.d
             self.pi[:, self.old_reward_col] = - np.inf * self.d
             self.pi[:, self.status_col] = 0

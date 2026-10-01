@@ -7,8 +7,10 @@ import timeit
 from tabulate import tabulate as tb
 from mealpy.utils.visualize import *
 from mealpy import FloatVar
+from .option_utils import get_epoch_value
 
-def generate_solution(model_object, fitness_function, total_features, objectives_directions, objective_number, number_of_times, show_plots, save_plots,show_log, solver_options):
+def generate_solution(model_object, fitness_function, total_features, objectives_directions, objective_number, number_of_times, show_plots, save_plots,show_log, solver_options, init_solutions=None, _on_repeat_start=None):
+
 
     problem = {
         "obj_func": fitness_function,
@@ -17,7 +19,26 @@ def generate_solution(model_object, fitness_function, total_features, objectives
         "log_to": "console" if show_log else None,
         "save_population": False,
     }
-    if solver_options.get("mode", None)!=None:
+
+    starting_solutions = None
+
+    if init_solutions is not None:
+        import numpy as _np
+        init_arr = _np.atleast_2d(_np.array(init_solutions, dtype=float))
+        n_pop = getattr(model_object, "pop_size", None) or solver_options.get("pop_size", 50)
+        if init_arr.shape[0] >= n_pop:
+            starting_solutions = init_arr[:n_pop]
+        else:
+            _pad = np.random.rand(n_pop - init_arr.shape[0], init_arr.shape[1])
+            starting_solutions = np.vstack([init_arr, _pad])
+
+    epoch = get_epoch_value(solver_options)
+    if epoch is not None:
+
+        termination={
+            "max_epoch": epoch}
+
+    elif solver_options.get("mode", None)!=None:
 
         termination={
             "mode": solver_options.get("mode", "MG"), 
@@ -26,6 +47,30 @@ def generate_solution(model_object, fitness_function, total_features, objectives
     else:
         termination=None
         
+    import sys as _sys, os as _os
+    from contextlib import redirect_stdout, redirect_stderr
+
+    def _suppress_output(func):
+        if show_log:
+            return func()
+        _devnull = open(_os.devnull, 'w')
+        _stdout_fd = _sys.stdout.fileno()
+        _stderr_fd = _sys.stderr.fileno()
+        _saved_stdout = _os.dup(_stdout_fd)
+        _saved_stderr = _os.dup(_stderr_fd)
+        _dn_fd = _devnull.fileno()
+        _os.dup2(_dn_fd, _stdout_fd)
+        _os.dup2(_dn_fd, _stderr_fd)
+        try:
+            with redirect_stdout(_devnull), redirect_stderr(_devnull):
+                return func()
+        finally:
+            _os.dup2(_saved_stdout, _stdout_fd)
+            _os.dup2(_saved_stderr, _stderr_fd)
+            _os.close(_saved_stdout)
+            _os.close(_saved_stderr)
+            _devnull.close()
+
     if number_of_times == 1:
         
         if solver_options.get("process_mode")!=None:
@@ -35,12 +80,12 @@ def generate_solution(model_object, fitness_function, total_features, objectives
 
         if termination!=None:
             time_solve_begin = timeit.default_timer()
-            g_best = model_object.solve(**solver_inputs, termination=termination)
+            g_best = _suppress_output(lambda: model_object.solve(**solver_inputs, termination=termination, starting_solutions=starting_solutions))
             time_solve_end = timeit.default_timer()
             best_agent, best_reward = g_best.solution, g_best.target.fitness
         else:
             time_solve_begin = timeit.default_timer()
-            g_best = model_object.solve(**solver_inputs)
+            g_best = _suppress_output(lambda: model_object.solve(**solver_inputs, starting_solutions=starting_solutions))
             time_solve_end = timeit.default_timer()
             best_agent, best_reward = g_best.solution, g_best.target.fitness
         
@@ -71,7 +116,10 @@ def generate_solution(model_object, fitness_function, total_features, objectives
 
         for i in range(number_of_times):
             time_solve_begin.append(timeit.default_timer())
-            g_best = model_object.solve(**solver_inputs)
+            if termination is not None:
+                g_best = _suppress_output(lambda: model_object.solve(**solver_inputs, termination=termination, starting_solutions=starting_solutions))
+            else:
+                g_best = _suppress_output(lambda: model_object.solve(**solver_inputs, starting_solutions=starting_solutions))
             time_solve_end.append(timeit.default_timer())
             best_agent, best_reward = g_best.solution, g_best.target.fitness
             Result = [best_agent, best_reward]

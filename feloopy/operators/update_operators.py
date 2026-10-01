@@ -31,13 +31,64 @@ def count_variable(variable_dim, total_count, special_count):
 
     return total_count, special_count
 
+_SDP_TYPE_LABELS = {
+    'dp': 'decision', 'state': 'state', 'exo': 'exogenous', 'tpar': 'parameter'
+}
+
+def _existing_variable_type(name, features):
+    """Return the type of an already-declared variable named ``name``, or None.
+
+    Names are registered in ``variable_type`` when a variable is declared and
+    in ``variables`` when its solver object is created, so both are checked.
+    """
+    existing_type = (features.get('variable_type') or {}).get(name)
+    if existing_type is not None:
+        return existing_type
+    for vtype, vname in features.get('variables') or ():
+        if vname == name:
+            return vtype
+    return None
+
+def _assert_unique_variable_name(name, features, sdp_types=None):
+    """Raise ValueError when a variable named ``name`` is already declared.
+
+    Result retrieval (``get``, ``get_numpy_var``) and reporting resolve
+    variables by name, so a duplicate declaration silently shadows the
+    earlier variable. ``sdp_types`` maps names to entries of a sequential
+    model's ``_sdp_vars`` storage.
+    """
+    if features.get('_allow_duplicate_names'):
+        return
+    existing_type = _existing_variable_type(name, features)
+    if existing_type is None and sdp_types and name in sdp_types:
+        existing_type = _SDP_TYPE_LABELS.get(
+            (sdp_types[name] or {}).get('type'), 'sequential')
+    if existing_type is not None:
+        raise ValueError(
+            f"Variable name {name!r} is already declared as a '{existing_type}' "
+            f"variable in this model. Choose a unique name, otherwise the values "
+            f"of the two variables become ambiguous in results and reports."
+        )
+
 def update_variable_features(name, variable_dim, variable_bound, variable_counter_type, features):
 
     if features['solution_method'] == 'exact':
+        _assert_unique_variable_name(name, features)
         features['total_variable_counter'], features[variable_counter_type] = count_variable(variable_dim, features['total_variable_counter'], features[variable_counter_type])
+        variable_type_mapping = {
+            'free_variable_counter': 'fvar',
+            'binary_variable_counter': 'bvar',
+            'integer_variable_counter': 'ivar',
+            'positive_variable_counter': 'pvar',
+            'sequential_variable_counter': 'svar'
+        }
+        features['variable_type'][name] = variable_type_mapping[variable_counter_type]
+        features['variable_bound'][name] = variable_bound
+        features['variable_dim'][name] = variable_dim
 
     elif features['solution_method'] == 'heuristic' and features['agent_status'] == 'idle':
 
+        _assert_unique_variable_name(name, features)
         start_counter = features['total_variable_counter'][1]
 
         #fixed svar counter

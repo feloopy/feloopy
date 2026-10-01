@@ -119,10 +119,10 @@ def generate_model(total_variables, directions, solver_name, solver_options, lb,
             
         case 'adamw':
             try:
-                from ...extras.algorithms.heuristic.gradient.adam import ADAM
+                from ...extras.algorithms.heuristic.gradient.adamw import ADAMW
             except ImportError:
-                from ...algorithms.heuristic.gradient.adam import ADAM
-            model_object = ADAM(f=total_variables, d=directions, lb=lb, ub=ub, s=solver_options.get(
+                from ...algorithms.heuristic.gradient.adamw import ADAMW
+            model_object = ADAMW(f=total_variables, d=directions, lb=lb, ub=ub, s=solver_options.get(
                 'epoch', 100), t=1, rep=solver_options.get('episode', 1), lr=solver_options.get('learning_rate', 0.01), b1=solver_options.get(
                 'beta_1', 0.9), b2=solver_options.get('beta_2', 0.999), wd=solver_options.get('weight_decay', 0.01), ben=solver_options.get('benchmark', False))
 
@@ -162,12 +162,66 @@ def generate_model(total_variables, directions, solver_name, solver_options, lb,
 
         case 'nesterov':
             try:
-                from ...extras.algorithms.heuristic.gradient.sgd import SGD
+                from ...extras.algorithms.heuristic.gradient.nesterov import NESTEROV
             except ImportError:
-                from ...algorithms.heuristic.gradient.sgd import SGD
-            model_object = SGD(f=total_variables, d=directions, lb=lb, ub=ub, s=solver_options.get(
+                from ...algorithms.heuristic.gradient.nesterov import NESTEROV
+            model_object = NESTEROV(f=total_variables, d=directions, lb=lb, ub=ub, s=solver_options.get(
                 'epoch', 100), t=1, rep=solver_options.get('episode', 1), lr=solver_options.get('learning_rate', 0.01), m=solver_options.get(
                 'momentum', 0.9), ben=solver_options.get('benchmark', False))
+
+        case 'lion':
+            try:
+                from ...extras.algorithms.heuristic.gradient.lion import LION
+            except ImportError:
+                from ...algorithms.heuristic.gradient.lion import LION
+            model_object = LION(f=total_variables, d=directions, lb=lb, ub=ub, s=solver_options.get(
+                'epoch', 100), t=1, rep=solver_options.get('episode', 1), lr=solver_options.get('learning_rate', 0.01), b1=solver_options.get(
+                'beta_1', 0.9), b2=solver_options.get('beta_2', 0.999), ben=solver_options.get('benchmark', False))
+
+        case 'radam':
+            try:
+                from ...extras.algorithms.heuristic.gradient.radam import RADAM
+            except ImportError:
+                from ...algorithms.heuristic.gradient.radam import RADAM
+            model_object = RADAM(f=total_variables, d=directions, lb=lb, ub=ub, s=solver_options.get(
+                'epoch', 100), t=1, rep=solver_options.get('episode', 1), lr=solver_options.get('learning_rate', 0.01), b1=solver_options.get(
+                'beta_1', 0.9), b2=solver_options.get('beta_2', 0.999), ben=solver_options.get('benchmark', False))
+
+        case 'lamb':
+            try:
+                from ...extras.algorithms.heuristic.gradient.lamb import LAMB
+            except ImportError:
+                from ...algorithms.heuristic.gradient.lamb import LAMB
+            model_object = LAMB(f=total_variables, d=directions, lb=lb, ub=ub, s=solver_options.get(
+                'epoch', 100), t=1, rep=solver_options.get('episode', 1), lr=solver_options.get('learning_rate', 0.01), b1=solver_options.get(
+                'beta_1', 0.9), b2=solver_options.get('beta_2', 0.999), wd=solver_options.get('weight_decay', 0.01), ben=solver_options.get('benchmark', False))
+
+        case 'sophia':
+            try:
+                from ...extras.algorithms.heuristic.gradient.sophia import SOPHIA
+            except ImportError:
+                from ...algorithms.heuristic.gradient.sophia import SOPHIA
+            model_object = SOPHIA(f=total_variables, d=directions, lb=lb, ub=ub, s=solver_options.get(
+                'epoch', 100), t=1, rep=solver_options.get('episode', 1), lr=solver_options.get('learning_rate', 0.01), b1=solver_options.get(
+                'beta_1', 0.9), b2=solver_options.get('beta_2', 0.999), lam=solver_options.get(
+                'lambda', 0.01), clip=solver_options.get('clip', 1.0), ben=solver_options.get('benchmark', False))
+
+        case 'muon':
+            try:
+                from ...extras.algorithms.heuristic.gradient.muon import MUON
+            except ImportError:
+                from ...algorithms.heuristic.gradient.muon import MUON
+            model_object = MUON(f=total_variables, d=directions, lb=lb, ub=ub, s=solver_options.get(
+                'epoch', 100), t=1, rep=solver_options.get('episode', 1), lr=solver_options.get('learning_rate', 0.01), b1=solver_options.get(
+                'beta_1', 0.9), b2=solver_options.get('beta_2', 0.999), mu=solver_options.get(
+                'mu', 0.01), ben=solver_options.get('benchmark', False))
+
+        case 'rs':
+            try:
+                from ...extras.algorithms.heuristic.RS import RS
+            except ImportError:
+                from ...algorithms.heuristic.RS import RS
+            model_object = RS(f=total_variables, d=directions, s=solver_options.get('epoch', 100), t=solver_options.get('pop_size', 50))
 
 
     return model_object

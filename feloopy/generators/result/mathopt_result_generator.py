@@ -36,8 +36,13 @@ def Get(model_object, result, input1, input2=None):
         case 'time':
 
             return (result[1][1]-result[1][0])
+
+        case 'bound':
+
+            return result[0].dual_bound()
         
         case 'dual':
-
-            return result[2].get(input2)
+            if len(result) > 2 and result[2] is not None:
+                return result[2].get(input2)
+            return None
         

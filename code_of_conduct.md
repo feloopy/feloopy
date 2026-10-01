@@ -22,7 +22,7 @@ Unacceptable behaviors include:
 - Sharing others' private information without permission.
 - Any behavior deemed unprofessional.
 
-## Enforcements
+## Enforcement
 
 Community leaders will enforce these standards:
 

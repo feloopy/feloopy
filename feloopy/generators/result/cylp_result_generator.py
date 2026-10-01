@@ -5,7 +5,6 @@
 import cylp as cylp_interface
 from cylp.cy import CyClpSimplex
 
-
 def Get(model_object, result, input1, input2=None):
 
     input1 = input1[0]
@@ -27,3 +26,7 @@ def Get(model_object, result, input1, input2=None):
         case 'time':
 
             return (result[1][1]-result[1][0])
+
+        case 'bound':
+
+            return None

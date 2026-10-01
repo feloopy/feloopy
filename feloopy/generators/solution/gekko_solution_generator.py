@@ -1,7 +1,6 @@
 # Copyright (c) 2022-2026, Keivan Tafakkori. All rights reserved.
 # See the file LICENSE file for licensing details.
 
-
 import gekko as gekko_interface
 import timeit
 
@@ -34,23 +33,31 @@ def generate_solution(features):
         raise RuntimeError(
             "Using solver '%s' is not supported by 'gekko'! \nPossible fixes: \n1) Check the solver name. \n2) Use another interface. \n" % (solver_name))
 
-    if len(solver_options) != 0:
+    disp = True if log else False
 
-        model_object.solver_options = [
-            f'{key} {solver_options[key]}' for key in solver_options]
+    if time_limit is not None:
+        model_object.options.MAX_TIME = time_limit
 
-    if log:
-        disp = True
-
-    else:
-        disp = False
-
-    if max_iterations != None:
+    if max_iterations is not None:
         model_object.options.MAX_ITER = max_iterations
+
+    if relative_gap is not None:
+        model_object.solver_options.append(f'mipgap {relative_gap}')
+
+    if absolute_gap is not None:
+        model_object.solver_options.append(f'mip_abstol {absolute_gap}')
+
+    if len(solver_options) != 0:
+        for key in solver_options:
+            if key.startswith("---"):
+                continue
+            if solver_options[key] is None:
+                continue
+            model_object.solver_options.append(f'{key} {solver_options[key]}')
 
     match debug:
 
-        case False:
+        case False | True:
 
             match directions[objective_id]:
                 case "min":
@@ -61,19 +68,16 @@ def generate_solution(features):
             for constraint in model_constraints:
                 model_object.Equation(constraint)
 
-            if 'online' not in solver_name:
-                model_object.options.SOLVER = gekko_solver_selector[solver_name]
-                time_solve_begin = timeit.default_timer()
-                result = model_object.solve(disp=disp)
-                time_solve_end = timeit.default_timer()
+            model_object._constraint_labels = list(constraint_labels)
 
-            else:
-
-                gekko_interface.GEKKO(remote=True)
+            time_solve_begin = timeit.default_timer()
+            try:
                 model_object.options.SOLVER = gekko_solver_selector[solver_name]
-                time_solve_begin = timeit.default_timer()
                 result = model_object.solve(disp=disp)
-                time_solve_end = timeit.default_timer()
+            except Exception:
+                model_object._feloopy_infeasible = True
+                result = None
+            time_solve_end = timeit.default_timer()
 
             generated_solution = [result, [time_solve_begin, time_solve_end]]
 

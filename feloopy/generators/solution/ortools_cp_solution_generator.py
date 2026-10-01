@@ -5,23 +5,6 @@
 from ortools.sat.python import cp_model
 import timeit
 
-ortools_solver_selector = {
-    'clp': 'CLP_LINEAR_PROGRAMMING',
-    'cbc': 'CBC_MIXED_INTEGER_PROGRAMMING',
-    'scip': 'SCIP_MIXED_INTEGER_PROGRAMMING',
-    'glop': 'GLOP_LINEAR_PROGRAMMING',
-    'bop': 'BOP_INTEGER_PROGRAMMING',
-    'sat': 'SAT_INTEGER_PROGRAMMING',
-    'gurobi_': 'GUROBI_LINEAR_PROGRAMMING',
-    'gurobi': 'GUROBI_MIXED_INTEGER_PROGRAMMING',
-    'cplex_': 'CPLEX_LINEAR_PROGRAMMING',
-    'cplex': 'CPLEX_MIXED_INTEGER_PROGRAMMING',
-    'xpress_': 'XPRESS_LINEAR_PROGRAMMING',
-    'xpress': 'XPRESS_MIXED_INTEGER_PROGRAMMING',
-    'glpk_': 'GLPK_LINEAR_PROGRAMMING',
-    'glpk': 'GLPK_MIXED_INTEGER_PROGRAMMING'
-}
-
 
 def generate_solution(features):
 
@@ -43,46 +26,83 @@ def generate_solution(features):
     email = features['email_address']
     max_iterations = features['max_iterations']
     solver_options = features['solver_options']
+    callback = features.get('callback', None)
 
-    match debug:
+    if len(directions) != 0:
 
-        case False:
+        match directions[objective_id]:
 
-            if len(directions) != 0:
+            case "min":
+                model_object.Minimize(model_objectives[objective_id])
 
-                match directions[objective_id]:
+            case "max":
+                model_object.Maximize(model_objectives[objective_id])
 
-                    case "min":
-                        model_object.Minimize(model_objectives[objective_id])
+    for i, constraint in enumerate(model_constraints):
+        if constraint is None:
+            continue
+        label = constraint_labels[i] if i < len(constraint_labels) and constraint_labels[i] is not None else f"con_{i}"
+        model_object.Add(constraint)
 
-                    case "max":
-                        model_object.Maximize(model_objectives[objective_id])
+    solver = cp_model.CpSolver()
 
-            for constraint in model_constraints:
-                model_object.Add(constraint)
+    if time_limit is not None:
+        solver.parameters.max_time_in_seconds = time_limit
 
-            solver = cp_model.CpSolver()
+    if thread_count is not None:
+        solver.parameters.num_workers = thread_count
 
-            if time_limit != None:
-                solver.parameters.max_time_in_seconds = time_limit
-                
-            if 'enumerate' in solver_options.keys():
-                if solver_options['enumerate']:
-                    solver.parameters.enumerate_all_solutions = True
-                else:
-                    solver.parameters.enumerate_all_solutions = False
-                    
-            time_solve_begin = timeit.default_timer()
-            result = solver.Solve(model_object)
-            time_solve_end = timeit.default_timer()
-            generated_solution = [[result, solver],
-                                  [time_solve_begin, time_solve_end]]
+    if relative_gap is not None:
+        solver.parameters.relative_gap_limit = relative_gap
 
-            if log:
+    if absolute_gap is not None:
+        solver.parameters.absolute_gap_limit = absolute_gap
 
-                print('\nStatistics')
-                print(f'  conflicts      : {solver.NumConflicts()}')
-                print(f'  branches       : {solver.NumBranches()}')
-                print(f'  wall time      : {solver.WallTime()} s')
+    if max_iterations is not None:
+        solver.parameters.max_deterministic_time = max_iterations
+
+    if 'enumerate' in solver_options:
+        solver.parameters.enumerate_all_solutions = solver_options['enumerate']
+
+    if 'log' in solver_options:
+        solver.parameters.log_search_progress = solver_options['log']
+    elif log:
+        solver.parameters.log_search_progress = True
+
+    from ..init_generator import flush_init
+    flush_init(features, force=True)
+
+    time_solve_begin = timeit.default_timer()
+    if callback is not None:
+        result = solver.Solve(model_object, callback)
+    else:
+        result = solver.Solve(model_object)
+    time_solve_end = timeit.default_timer()
+
+    generated_solution = [[result, solver],
+                          [time_solve_begin, time_solve_end]]
+
+    if log:
+
+        _status_code_to_name = {
+            int(cp_model.UNKNOWN): "unknown",
+            int(cp_model.MODEL_INVALID): "model_invalid",
+            int(cp_model.INFEASIBLE): "infeasible",
+            int(cp_model.FEASIBLE): "feasible",
+            int(cp_model.OPTIMAL): "optimal",
+        }
+        _name = _status_code_to_name.get(int(result), f"UNKNOWN({result})")
+        _solved = int(result) in (int(cp_model.OPTIMAL), int(cp_model.FEASIBLE))
+
+        print('\nStatistics')
+        print(f'  status         : {_name}')
+        print(f'  conflicts      : {solver.NumConflicts()}')
+        print(f'  branches       : {solver.NumBranches()}')
+        print(f'  wall time      : {solver.WallTime()} s')
+        if _solved:
+            try:
+                print(f'  objective      : {solver.ObjectiveValue()}')
+            except Exception:
+                print(f'  objective      : N/A')
 
     return generated_solution

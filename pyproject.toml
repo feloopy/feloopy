@@ -29,35 +29,37 @@ keywords = [
     "optimization",
     "simulation",
     "supply chain",
+    "heuristics",
+    "meta-heuristics",
 ]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Scientific/Engineering :: Mathematics",
 ]
+
 dependencies = [
-    "highspy",
+    "colorama",
     "infix",
     "matplotlib",
     "nbformat",
     "numpy",
     "openpyxl",
-    "pandas",
+    "packaging",
+    "polars[excel]",
     "psutil",
     "py-cpuinfo",
-    "tabulate",
-    "win-unicode-console",
-    "xlsxwriter",
-    "tqdm",
-    "colorama",
-    "joblib",
     "rich",
+    "scipy",
+    "sympy",
+    "tabulate",
+    "tqdm",
 ]
 
 [project.urls]
@@ -71,124 +73,17 @@ flp = "feloopy.cli:main"
 fly = "feloopy.cli:main"
 
 [project.optional-dependencies]
-dev = ["pytest"]
-pico = []
-nano = [
-    "pymprog==1.1.2",
-    "highspy==1.10.0",
-]
-micro = [
-    "pymprog==1.1.2",
-    "highspy==1.10.0",
-    "gekko==1.3.0",
-    "mealpy==3.0.1",
-]
-mini = [
-    "pymprog==1.1.2",
-    "highspy==1.10.0",
-    "gekko==1.3.0",
-    "mealpy==3.0.1",
-    "cvxpy==1.6.4",
-    "ortools==9.12.4544",
-]
-full = [
-    "pymprog==1.1.2",
-    "highspy==1.10.0",
-    "gekko==1.3.0",
-    "mealpy==3.0.1",
-    "cvxpy==1.6.4",
-    "ortools==9.12.4544",
-    "pydecision==4.7.5",
-    "pymoo==0.6.1.3",
-    "rsome==1.3.1",
-]
 stock = [
-    "pymprog==1.1.2",
-    "highspy==1.10.0",
-    "gekko==1.3.0",
+    "pyomo==6.10.1",
+    "highspy==1.15.1",
+    "pyscipopt==6.2.1",
+    "unopy==0.4.14",
+    "pydecision==5.1.1",
     "mealpy==3.0.1",
-    "cvxpy==1.6.4",
-    "ortools==9.12.4544",
-    "pydecision==4.7.5",
     "pymoo==0.6.1.3",
-    "rsome==1.3.1",
-    "linopy==0.5.2",
-    "mip==1.15.0",
-    "niapy==2.5.2",
-    "picos==2.6.0",
-    "pulp==3.1.1",
-    "pygad==3.4.0",
-    "pyomo==6.9.1",
-    "highsbox==1.10.0",
-    "pyoptinterface==0.4.1",
-]
-hyper = [
-    "pymprog==1.1.2",
-    "highspy==1.10.0",
-    "gekko==1.3.0",
-    "mealpy==3.0.1",
+    "ortools==9.15.6755",
     "cvxpy==1.6.4",
-    "ortools==9.12.4544",
-    "pydecision==4.7.5",
-    "pymoo==0.6.1.3",
-    "rsome==1.3.1",
-    "linopy==0.5.2",
-    "mip==1.15.0",
-    "niapy==2.5.2",
-    "picos==2.6.0",
-    "pulp==3.1.1",
-    "pygad==3.4.0",
-    "pyomo==6.9.1",
-    "highsbox==1.10.0",
-    "pyoptinterface==0.4.1",
-    "gurobipy==12.0.1",
-    "coptpy==7.2.6",
-    "cplex==22.1.2.0",
-    "docplex==2.29.241",
-    "xpress==9.5.4",
-    "gamspy==1.8.0",
 ]
-mega = [
-    "pymprog==1.1.2",
-    "highspy==1.10.0",
-    "gekko==1.3.0",
-    "mealpy==3.0.1",
-    "cvxpy==1.6.4",
-    "ortools==9.12.4544",
-    "pydecision==4.7.5",
-    "pymoo==0.6.1.3",
-    "rsome==1.3.1",
-    "linopy==0.5.2",
-    "mip==1.15.0",
-    "niapy==2.5.2",
-    "picos==2.6.0",
-    "pulp==3.1.1",
-    "pygad==3.4.0",
-    "pyomo==6.9.1",
-    "highsbox==1.10.0",
-    "pyoptinterface==0.4.1",
-    "gurobipy==12.0.1",
-    "coptpy==7.2.6",
-    "cplex==22.1.2.0",
-    "docplex==2.29.241",
-    "xpress==9.5.4",
-    "gamspy==1.8.0",
-    "cylp==0.92.2",
-    "pymultiobjective==1.5.5",
-]
-plus_gurobi = ["gurobipy==12.0.1"]
-plus_copt = ["coptpy==7.2.6"]
-plus_cplex = ["cplex==22.1.2.0", "docplex==2.29.241"]
-plus_xpress = ["xpress==9.5.4"]
-plus_gams = ["gamspy==1.8.0"]
-plus_insideoptdemo = ["insideopt-demo==0.3.3"]
-plus_insideopt = ["insideopt-seeker==0.1.21"]
-plus_jump = ["juliacall==0.9.24"]
-only_cylp = ["cylp==0.92.2"]
-only_linux = ["pymultiobjective==1.5.5"]
-beta = ["casadi==3.7.0", "scipy==1.15.2"]
-canvas = ["IPython", "gif", "folium", "plotly"]
-extras = ["numba", "scikit-learn"]
 
 [tool.hatch.version]
 path = "feloopy/_version.py"
@@ -196,6 +91,3 @@ path = "feloopy/_version.py"
 [tool.hatch.build.targets.wheel]
 packages = ["feloopy"]
 exclude = ["tests/**"]
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]

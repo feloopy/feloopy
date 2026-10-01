@@ -39,21 +39,21 @@ def generate_variable(model_object, variable_type, variable_name, variable_bound
                 else:
                     generated_variable = {key: model_object.Var(lb=variable_bound[0], ub=variable_bound[1], integer=True, name=f'{variable_name}_{key}') for key in sets(*variable_dim)}
 
-        case 'fvar':
+        case 'fvar' | 'rvar':
             if variable_dim == 0:
-                generated_variable = model_object.Var(name=variable_name)
+                generated_variable = model_object.Var(lb=variable_bound[0], ub=variable_bound[1], name=variable_name)
             else:
                 if len(variable_dim) == 1:
-                    generated_variable = {key: model_object.Var(name=f'{variable_name}_{key}') for key in variable_dim[0]}
+                    generated_variable = {key: model_object.Var(lb=variable_bound[0], ub=variable_bound[1], name=f'{variable_name}_{key}') for key in variable_dim[0]}
                 else:
-                    generated_variable = {key: model_object.Var(name=f'{variable_name}_{key}') for key in sets(*variable_dim)}
+                    generated_variable = {key: model_object.Var(lb=variable_bound[0], ub=variable_bound[1], name=f'{variable_name}_{key}') for key in sets(*variable_dim)}
 
         case 'ftvar':
             if variable_dim==0:
-                generated_variable = model_object.Var(name=variable_name)
+                generated_variable = model_object.Var(lb=variable_bound[0], ub=variable_bound[1], name=variable_name)
             else:
                 dims = tuple(len(dim) for dim in variable_dim)
-                generated_variable = model_object.Array(model_object.Var, dims)
+                generated_variable = model_object.Array(model_object.Var, dims, lb=variable_bound[0], ub=variable_bound[1])
 
         case 'ptvar':
             if variable_dim==0:

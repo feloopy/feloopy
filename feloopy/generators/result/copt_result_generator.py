@@ -3,6 +3,7 @@
 
 from coptpy import *
 from ...helpers.formatter import *
+from ...helpers.reporter import left_align
 
 copt_status_dict = {
     COPT.OPTIMAL: 'optimal',
@@ -30,11 +31,26 @@ def Get(model_object, result, input1, input2=None):
         case 'time':
             return (result[1][1]-result[1][0])
 
+        case 'bound':
+            return model_object.getAttr("ObjBound")
+
         case 'dual':
-            return model_object.getConstrByName(input2).Pi
+            try:
+                constr = model_object.getConstrByName(input2)
+                if constr is not None:
+                    return constr.Pi
+                return None
+            except Exception:
+                return None
 
         case 'slack':
-            return model_object.getConstrByName(input2).Slack
+            try:
+                constr = model_object.getConstrByName(input2)
+                if constr is not None:
+                    return constr.Slack
+                return None
+            except Exception:
+                return None
 
         case 'rc':
             return input2.rc

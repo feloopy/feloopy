@@ -30,6 +30,21 @@ def generate_solution(features):
     else:
         display=False
 
+
+    from ...helpers.solver_executables import require_python_solver
+    _backing = {'scipy': ('scipy', 'scipy'),
+                'cylp': ('cylp', 'cylp'),
+                'ortools': ('ortools', 'ortools'),
+                'ecos': ('ecos', 'ecos'),
+                'gurobi': ('gurobi', 'gurobipy'),
+                'cplex': ('cplex', 'cplex'),
+                'mosek': ('mosek', 'mosek'),
+                'copt': ('copt', 'coptpy'),
+                'cvxpy': ('cvxpy', 'cvxpy')}
+    _need = _backing.get(solver_name)
+    if _need:
+        require_python_solver(*_need)
+
     if solver_name =='scipy':
         from rsome import lpg_solver
         solver = lpg_solver
@@ -72,21 +87,24 @@ def generate_solution(features):
 
     match debug:
 
-        case False:
+        case False | True:
 
-            match directions[objective_id]:
+            already_set = features.get('_objective_already_set', False)
 
-                case "min":
-                    if len(obj_operators)==0:                    
-                        model_object.min(model_objectives[objective_id])
-                    elif obj_operators[objective_id] == 'max':
-                        model_object.minmax(*model_objectives[objective_id])
-                case "max":
-                    if len(obj_operators)==0:
-                        model_object.max(model_objectives[objective_id])
-                    
-                    elif obj_operators[objective_id] == 'min':
-                        model_object.maxmin(*model_objectives[objective_id])
+            if not already_set:
+                match directions[objective_id]:
+
+                    case "min":
+                        if len(obj_operators)==0:
+                            model_object.min(model_objectives[objective_id])
+                        elif obj_operators[objective_id] == 'max':
+                            model_object.minmax(model_objectives[objective_id], *features.get('uncertainty_set_constraints', []))
+                    case "max":
+                        if len(obj_operators)==0:
+                            model_object.max(model_objectives[objective_id])
+
+                        elif obj_operators[objective_id] == 'min':
+                            model_object.maxmin(model_objectives[objective_id], *features.get('uncertainty_set_constraints', []))
 
             for constraint in model_constraints:
                 model_object.st(constraint)

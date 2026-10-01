@@ -4,4 +4,6 @@
 import highspy as highs_interface
 
 def generate_model(features):
-    return highs_interface.Highs()
+    model = highs_interface.Highs()
+    model.setOptionValue('output_flag', False)
+    return model

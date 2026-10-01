@@ -6,3 +6,13 @@ class MultiObjectivityError(Exception):
 
 class VariableDimError(Exception):
     pass
+
+class DirectionError(Exception):
+    pass
+
+class ConstantConstraintError(ValueError):
+    """A constant constraint evaluated to False: the model is infeasible.
+
+    Subclasses ``ValueError`` so plain ``except ValueError`` still matches.
+    """
+    pass

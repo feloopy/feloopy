@@ -8,7 +8,10 @@ from tabulate import tabulate as tb
 import numpy as np
 
 
-def generate_solution(model_object, fitness_function, total_features, objectives_directions, objective_number, number_of_times, show_plots,show_log):
+def generate_solution(model_object, fitness_function, total_features, objectives_directions, objective_number, number_of_times, show_plots,show_log, init_solutions=None, _on_repeat_start=None):
+
+    if init_solutions is not None:
+        model_object.init_solutions = init_solutions
 
     if number_of_times == 1:
 
@@ -26,6 +29,8 @@ def generate_solution(model_object, fitness_function, total_features, objectives
         bestreward = [-directions*np.inf]
         best_reward_found = -directions*np.inf
         for i in range(number_of_times):
+            if _on_repeat_start is not None:
+                _on_repeat_start()
             time_solve_begin.append(timeit.default_timer())
             best_agent, best_reward, status = model_object.solve(
                 fitness_function)
@@ -75,4 +80,4 @@ def generate_solution(model_object, fitness_function, total_features, objectives
         best_agent = best_agent_found
         best_reward = best_reward_found
 
-    return best_agent, best_reward, np.average(time_solve_begin), np.average(time_solve_end), status
+    return best_agent, best_reward, time_solve_begin, time_solve_end, status

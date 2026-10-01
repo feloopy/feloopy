@@ -6,9 +6,18 @@ def fix_dims(dim):
     if dim == 0:
         return dim
 
-    if not isinstance(dim, set):
-        if len(dim)>=1:
-            if not isinstance(dim[0], set):
-                dim = [range(d) if not isinstance(d, range) else d for d in dim]
+    if isinstance(dim, set):
+        return dim
+
+    if not isinstance(dim, (list, tuple)):
+        return dim
+
+    if len(dim) >= 1:
+        if isinstance(dim[0], set):
+            pass
+        elif isinstance(dim[0], str):
+            return set(dim)
+        else:
+            dim = [range(d) if not isinstance(d, range) else d for d in dim]
     
     return dim

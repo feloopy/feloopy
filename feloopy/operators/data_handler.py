@@ -2,10 +2,12 @@
 # See the file LICENSE file for licensing details.
 
 import numpy as np
-import pandas as pd
+from ..helpers._lazy import pl
 import itertools as it
 import os
 import json
+
+from .arraybase import _ArrayBase, _nd_getitem
 
 try:
     from ..extras.operators.data_handler import *
@@ -13,6 +15,377 @@ except:
 
     class FileManager:
         pass
+
+
+# Parsed workbook grids, keyed by (path, mtime): one openpyxl parse per
+# file revision instead of one per sheet.
+_EXCEL_GRIDS = {}
+
+
+def _sheet_grid(ws):
+    """Values-only grid for ``ws`` as a rectangular object ndarray.
+
+    Empty cells become ``None``.  Trailing blank rows/columns (left-over
+    formatting) are dropped; blank *leading* rows/columns are kept, because
+    they are positional information for the read.
+    """
+    rows = [list(r) for r in ws.iter_rows(values_only=True)]
+    while rows and all(v is None for v in rows[-1]):
+        rows.pop()
+    width = max(
+        (max((j for j, v in enumerate(r) if v is not None), default=-1) for r in rows),
+        default=-1,
+    )
+    if not rows or width < 0:
+        return np.empty((0, 0), dtype=object)
+    grid = np.empty((len(rows), width + 1), dtype=object)
+    for i, r in enumerate(rows):
+        for j in range(width + 1):
+            grid[i, j] = r[j] if j < len(r) else None
+    return grid
+
+
+def _invalidate_grids(file_name):
+    """Drop every cached parse of ``file_name`` (call after writing to it)."""
+    try:
+        path = os.path.abspath(file_name)
+    except (OSError, ValueError):
+        return
+    for key in [k for k in _EXCEL_GRIDS if k[0] == path]:
+        del _EXCEL_GRIDS[key]
+
+
+def _infer_sheet_layout(name, grid):
+    """Derive ``(dim, labels, appearance)`` for a bare ``lfe(name=...)`` read.
+
+    The sheet is classified the way ``save_to_excel`` lays sheets out and the
+    way the previous pandas loader picked them apart:
+
+    * one populated cell (the rest blank) -> a scalar, i.e. ``dim=0``;
+    * leading rows without a number are header rows (``nc``);
+    * leading columns below them without a number are label columns (``nr``);
+    * label columns present -> ``appearance=[nr, nc]``: one dimension per
+      label column, then one per header row that labels the value region,
+      each sized by its distinct labels;
+    * no label columns but a single row of values -> wide layout: the header
+      rows name the value columns, i.e. ``appearance=[0, nc]`` (this is how
+      ``save_to_excel`` writes 1-D arrays by default);
+    * no label columns and many rows -> long format: the first ``ncols - 1``
+      columns are indices and the last one holds the values, i.e.
+      ``appearance=[k, 0]`` -- the header row then reads as data and is
+      skipped by the loader's exact label matching.
+
+    ``ValueError`` is raised when the layout cannot be recognised; pass
+    ``dim`` explicitly in that case.
+    """
+
+    def _is_num(v):
+        return (
+            isinstance(v, (int, float))
+            and not isinstance(v, bool)
+            and not (isinstance(v, float) and np.isnan(v))
+        )
+
+    def _present(v):
+        return (
+            v is not None
+            and v != ""
+            and not (isinstance(v, float) and np.isnan(v))
+        )
+
+    def _prefix(v):
+        s = str(v)
+        core = s.rstrip("0123456789")
+        return core if core else s
+
+    def _uniq(values):
+        out = []
+        for v in values:
+            if _present(v) and v not in out:
+                out.append(v)
+        return out
+
+    nrows, ncols = grid.shape
+    if sum(1 for v in grid.ravel() if _present(v)) <= 1:
+        # a single populated cell: read it the way dim=0 always has
+        return 0, None, None
+
+    # header rows: leading rows holding no numeric cell
+    nc = 0
+    while nc < nrows and not any(_is_num(v) for v in grid[nc]):
+        nc += 1
+    # label columns: leading columns below the headers that carry labels
+    # but no numbers
+    nr = 0
+    while nr < ncols:
+        col = grid[nc:, nr]
+        if any(_is_num(v) for v in col) or not any(_present(v) for v in col):
+            break
+        nr += 1
+
+    if nr == 0:
+        data_rows = nrows - nc
+        if data_rows <= 1:
+            # wide: one row of values, the header rows name the columns
+            col_dim_rows = [
+                i for i in range(nc) if any(_present(v) for v in grid[i])
+            ]
+            if not col_dim_rows:
+                raise ValueError(
+                    f"Sheet '{name}': cannot infer the layout (no label "
+                    "columns and no header row); pass dim, labels and "
+                    "appearance explicitly"
+                )
+            labels, sizes = [], []
+            for i_h in col_dim_rows:
+                row = grid[i_h]
+                labels.append(_prefix(next(v for v in row if _present(v))))
+                sizes.append(len(_uniq(row)))
+            return sizes, labels, [0, nc]
+
+        # long format: the last column holds the values, the ones before it
+        # are indices
+        k = ncols - 1
+        if k < 1:
+            raise ValueError(
+                f"Sheet '{name}': cannot infer the layout (a single column "
+                "of values with no index); pass dim explicitly"
+            )
+        labels = []
+        for j in range(k):
+            first = next(
+                (grid[i, j] for i in range(nc) if _present(grid[i, j])), None
+            )
+            labels.append(_prefix(first) if first is not None else "")
+        if not any(labels) and "_" in name:
+            # no header names to go by: the sheet name suffix does
+            # (ase_ijm -> i, j, m), like the old pandas loader assumed
+            suffix = name.split("_", 1)[1]
+            if suffix.isalpha() and len(suffix) == k:
+                labels = list(suffix)
+        sizes = [len(_uniq(grid[nc:, j])) for j in range(k)]
+        if 0 in sizes:
+            raise ValueError(
+                f"Sheet '{name}': cannot infer the layout (index column "
+                "without values); pass dim, labels and appearance explicitly"
+            )
+        return sizes, labels, [k, 0]
+
+    # label columns (and maybe header rows) label the value region
+    labels, sizes = [], []
+    for j in range(nr):
+        first = next((v for v in grid[nc:, j] if _present(v)), None)
+        labels.append(_prefix(first) if first is not None else "")
+        sizes.append(len(_uniq(grid[nc:, j])))
+    value_region = grid[:nc, nr:]
+    col_dim_rows = [
+        i for i in range(nc) if any(_present(v) for v in value_region[i])
+    ]
+    for i_h in col_dim_rows:
+        row = value_region[i_h]
+        labels.append(_prefix(next(v for v in row if _present(v))))
+        sizes.append(len(_uniq(row)))
+    return sizes, labels, [nr, nc]
+
+
+class NativeArray(_ArrayBase):
+    """A stored data parameter.
+
+    A view-based ndarray skin over the shared ``_ArrayBase`` (the same base
+    ``NumpyVariable`` uses).  Element access still hands back Python
+    scalars -- ``p[0]`` is an ``int``, not an ``np.int64``, so it works as
+    an index, a json value and inside ``isinstance`` probes -- while every
+    other manipulation (arithmetic, reductions such as
+    ``.sum(axis=(1, 2))``, hashing, ``in`` membership, ``int()``/``round()``
+    coercion and comparisons) comes from the base, identically for data and
+    decision variables.  ``_arr`` survives as the legacy accessor for the
+    call sites that unwrap data before handing it to numpy.
+    """
+
+    # data compared with data keeps numpy's boolean answers; see _ArrayBase
+    _is_data = True
+
+    @property
+    def _arr(self):
+        # plain ndarray view over the same buffer: stats, reports and svar
+        # initialization unwrap with it, and recursion like
+        # ``flatten(data._arr)`` must reach the ndarray branch, not loop
+        return self.view(np.ndarray)
+
+    def __getitem__(self, key):
+        v = _nd_getitem(self, key)
+        if isinstance(v, np.generic):
+            # Python scalars: np.int64 has no .index, defeats integer
+            # indexing and is not json serializable
+            return v.item()
+        return v
+
+    def __array__(self, dtype=None, copy=None):
+        # numpy 2 calls __array__(dtype, copy=False) from np.asarray(); a
+        # view needs no copy, and the dtype branch below already produces a
+        # new array when conversion is requested
+        base = self.view(np.ndarray)
+        if dtype is not None and np.dtype(dtype) != base.dtype:
+            return base.astype(dtype)
+        if copy:
+            return base.copy()
+        return base
+
+    def __repr__(self):
+        # report boxes render data with plain numpy formatting
+        return repr(self._arr)
+
+    def __str__(self):
+        return str(self._arr)
+
+class DataRef:
+    __slots__ = ('_data', '_key')
+    def __init__(self, data, key):
+        object.__setattr__(self, '_data', data)
+        object.__setattr__(self, '_key', key)
+    def _resolve(self):
+        return self._data[self._key]
+    def __float__(self):
+        return float(self._resolve())
+    def __int__(self):
+        v = self._resolve()
+        if isinstance(v, _ArrayBase):
+            return v.__int__()
+        if isinstance(v, (int, float, np.integer, np.floating)):
+            return int(v)
+        return v
+    def __index__(self):
+        v = self._resolve()
+        if isinstance(v, (int, float, np.integer, np.floating)):
+            return int(v)
+        if isinstance(v, _ArrayBase):
+            # a size-1 integer array indexes like its element; anything else
+            # raises numpy's own TypeError
+            return v.__index__()
+        raise TypeError(f"cannot use DataRef wrapping {type(v).__name__} as index")
+    def __add__(self, other):
+        return self._resolve() + other
+    def __radd__(self, other):
+        return other + self._resolve()
+    def __sub__(self, other):
+        return self._resolve() - other
+    def __rsub__(self, other):
+        return other - self._resolve()
+    def __mul__(self, other):
+        return self._resolve() * other
+    def __rmul__(self, other):
+        return other * self._resolve()
+    def __truediv__(self, other):
+        return self._resolve() / other
+    def __rtruediv__(self, other):
+        return other / self._resolve()
+    def __floordiv__(self, other):
+        return self._resolve() // other
+    def __rfloordiv__(self, other):
+        return other // self._resolve()
+    def __mod__(self, other):
+        return self._resolve() % other
+    def __rmod__(self, other):
+        return other % self._resolve()
+    def __pow__(self, other):
+        return self._resolve() ** other
+    def __rpow__(self, other):
+        return other ** self._resolve()
+    def __neg__(self):
+        return -self._resolve()
+    def __pos__(self):
+        return +self._resolve()
+    def __abs__(self):
+        return abs(self._resolve())
+    def __round__(self, n=None):
+        return round(self._resolve(), n) if n is not None else round(self._resolve())
+    def __floor__(self):
+        import math
+        return math.floor(self._resolve())
+    def __ceil__(self):
+        import math
+        return math.ceil(self._resolve())
+    def __trunc__(self):
+        import math
+        return math.trunc(self._resolve())
+    def __eq__(self, other):
+        return self._resolve() == other
+    def __ne__(self, other):
+        return self._resolve() != other
+    def __lt__(self, other):
+        return self._resolve() < other
+    def __le__(self, other):
+        return self._resolve() <= other
+    def __gt__(self, other):
+        return self._resolve() > other
+    def __ge__(self, other):
+        return self._resolve() >= other
+    def __hash__(self):
+        return hash(self._resolve())
+    def __repr__(self):
+        return repr(self._resolve())
+    def __str__(self):
+        return str(self._resolve())
+    def __bool__(self):
+        return bool(self._resolve())
+    def __len__(self):
+        return len(self._resolve())
+    def __contains__(self, item):
+        return item in self._resolve()
+    def __iter__(self):
+        return iter(self._resolve())
+    def __getitem__(self, key):
+        return self._resolve()[key]
+    def __setitem__(self, key, value):
+        self._resolve()[key] = value
+    def __array__(self, dtype=None, copy=None):
+        # numpy 2 passes copy= to __array__; resolving already hands back a
+        # fresh view/convert of the underlying data, so only an explicit
+        # copy request needs an actual copy
+        v = self._resolve()
+        if copy:
+            return np.array(v, dtype=dtype)
+        return np.asarray(v, dtype=dtype)
+    def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
+        resolved = tuple(x._resolve() if isinstance(x, DataRef) else x for x in inputs)
+        if 'out' in kwargs:
+            outs = kwargs['out']
+            kwargs['out'] = tuple(x._resolve() if isinstance(x, DataRef) else x for x in outs)
+        return getattr(ufunc, method)(*resolved, **kwargs)
+    def __array_function__(self, func, types, args, kwargs):
+        resolved_args = tuple(x._resolve() if isinstance(x, DataRef) else x for x in args)
+        return func(*resolved_args, **kwargs)
+
+
+def rewrap_scenario(original, value):
+    """Return *value* wrapped in the same container type as *original*.
+
+    DataToolkit stores numeric arrays as NativeArray (whose element access
+    converts numpy scalars to Python ints/floats) and sometimes as plain
+    lists.  Scenario generation produces raw numpy arrays, so swapping one
+    in directly would change how the model's data references behave
+    (``np.int64`` has no ``.index`` and breaks highspy expressions, float
+    scenario values break integer indexing, ...).  Mirroring the original
+    container type keeps rebuilt models consistent with the first build.
+    """
+    if isinstance(original, NativeArray):
+        if isinstance(value, NativeArray):
+            return value
+        if isinstance(value, (list, tuple, np.ndarray)):
+            return NativeArray(np.asarray(value))
+        return value
+    if isinstance(original, list):
+        if isinstance(value, np.ndarray):
+            return value.tolist()
+        if isinstance(value, tuple):
+            return list(value)
+        return value
+    if isinstance(original, tuple):
+        if isinstance(value, np.ndarray):
+            return tuple(value.tolist())
+        return value
+    return value
+
 
 class DataToolkit(FileManager):
 
@@ -22,6 +395,7 @@ class DataToolkit(FileManager):
         self.seed= key
         self.random = np.random.default_rng(key)
         self.lfe = self.load_from_excel
+        self.lse = self.save_to_excel
         self.memorize=memorize
         self.gaussian = self.normal
         self.store = self.param =self.par = self.__keep
@@ -37,23 +411,48 @@ class DataToolkit(FileManager):
         self.possible_epsilon = 1e-16
         self.possible_big_m = 1e16
         self.std_params = {}
+        self.descriptions = {}
 
-    def sets(self,*args):
-        return it.product(*args)
+    def sets(self, *args, name=None):
+        if len(args) == 1:
+            arg = args[0]
+            if isinstance(arg, set):
+                result = arg
+            elif isinstance(arg, (list, range)):
+                result = set(arg)
+            elif isinstance(arg, str):
+                result = {arg}
+            else:
+                result = {arg}
+        elif len(args) == 0:
+            result = set()
+        else:
+            result = set(it.product(*args))
+        if name is not None:
+            self.data[name] = result
+        return result
     
     def __fix_dims(self, dim, is_range=True):
         if dim == 0:
             pass
-        elif not isinstance(dim, set):
+        elif isinstance(dim, set):
+            pass
+        elif isinstance(dim, (list, tuple)):
             if len(dim) >= 1:
-                if is_range:
+                if isinstance(dim[0], str):
+                    dim = set(dim)
+                elif is_range:
                     dim = [range(d) if not isinstance(d, range) else d for d in dim]
                 else:
                     dim = [len(d) if not isinstance(d, int) else d for d in dim]
         return dim
 
     def __calculate_total_size(self, data):
-        if isinstance(data, (list, tuple)):
+        if isinstance(data, DataRef):
+            return self.__calculate_total_size(data._resolve())
+        elif isinstance(data, NativeArray):
+            return data.size
+        elif isinstance(data, (list, tuple)):
             return sum(self.__calculate_total_size(item) for item in data)
         elif isinstance(data,set):
             return 0
@@ -61,10 +460,10 @@ class DataToolkit(FileManager):
             return sum(self.__calculate_total_size(key) + self.__calculate_total_size(value) for key, value in data.items())
         elif isinstance(data, np.ndarray):
             return data.size
-        elif isinstance(data, pd.DataFrame):
-            return data.size
-        elif isinstance(data, pd.Series):
-            return data.size
+        elif isinstance(data, pl.DataFrame):
+            return data.shape[0] * data.shape[1]
+        elif isinstance(data, pl.Series):
+            return data.shape[0]
         elif hasattr(data, '__len__') and not isinstance(data, (str, bytes)):
             return sum(self.__calculate_total_size(item) for item in data)
         else:
@@ -72,7 +471,11 @@ class DataToolkit(FileManager):
 
     def __calculate_stats(self, data):
         def flatten(data):
-            if isinstance(data, (list, tuple)):
+            if isinstance(data, DataRef):
+                yield from flatten(data._resolve())
+            elif isinstance(data, NativeArray):
+                yield from flatten(data._arr)
+            elif isinstance(data, (list, tuple)):
                 for item in data:
                     yield from flatten(item)
             elif isinstance(data, set):
@@ -85,11 +488,11 @@ class DataToolkit(FileManager):
             elif isinstance(data, np.ndarray):
                 for item in data.flatten():
                     yield from flatten(item)
-            elif isinstance(data, pd.Series):
-                for item in data.values.flatten():
+            elif isinstance(data, pl.Series):
+                for item in data.to_numpy().flatten():
                     yield from flatten(item)
-            elif isinstance(data, pd.DataFrame):
-                for item in data.values.flatten():
+            elif isinstance(data, pl.DataFrame):
+                for item in data.to_numpy().flatten():
                     yield from flatten(item)
             elif hasattr(data, '__iter__') and not isinstance(data, (str, bytes)):
                 for item in data:
@@ -151,27 +554,97 @@ class DataToolkit(FileManager):
         data_size = len(values)
         return data_type, data_size, min_value, max_value, mean_value, std_deviation
 
-    def __keep(self, name, value, neglect=False):
+    @staticmethod
+    def _infer_description(name):
+        n = name.lower().strip()
+        _rules = [
+            (['demand', 'd_req', 'requirement'], 'Demand parameter'),
+            (['cost', 'price', 'fee', 'expense', 'charge'], 'Cost parameter'),
+            (['setup', 'ordering', 'order_cost'], 'Setup/ordering cost parameter'),
+            (['hold', 'inventory', 'storage'], 'Holding cost parameter'),
+            (['cap', 'capacity', 'limit', 'max_cap', 'maximum'], 'Capacity parameter'),
+            (['time', 'duration', 'lead', 'period', 'horizon'], 'Time parameter'),
+            (['prob', 'probability', 'chance', 'likelihood'], 'Probability parameter'),
+            (['weight', 'wt'], 'Weight parameter'),
+            (['revenue', 'return', 'income', 'profit'], 'Revenue parameter'),
+            (['budget', 'fund', 'resource'], 'Budget parameter'),
+            (['fixed'], 'Fixed cost parameter'),
+            (['variable'], 'Variable cost parameter'),
+            (['loss', 'penalty', 'fine', 'shortage'], 'Loss/penalty parameter'),
+            (['qty', 'quantity', 'amount', 'volume'], 'Quantity parameter'),
+            (['salvage', 'scrap', 'residual'], 'Salvage parameter'),
+            (['rate', 'ratio', 'ratio'], 'Rate parameter'),
+            (['speed', 'velocity'], 'Speed parameter'),
+            (['distance', 'dist', 'length', 'width', 'height'], 'Distance/dimension parameter'),
+            (['temperature', 'temp'], 'Temperature parameter'),
+            (['energy', 'power', 'fuel'], 'Energy parameter'),
+            (['capacity_factor', 'utilization', 'util'], 'Utilization parameter'),
+        ]
+        for keywords, desc in _rules:
+            for kw in keywords:
+                if kw in n or n == kw:
+                    return desc
+        if len(n) == 1:
+            return f"Parameter {name}"
+        return f"Parameter {name}"
+
+    def __keep(self, name, value, neglect=False, description=None):
+        _scalar_types = (int, float, np.integer, np.floating)
+        if name in self.data:
+            existing = self.data[name]
+            if isinstance(existing, DataRef):
+                if description is not None:
+                    self.descriptions[name] = description
+                return existing
+            if isinstance(existing, _scalar_types):
+                if description is not None:
+                    self.descriptions[name] = description
+                return DataRef(self.data, name)
+            if description is not None:
+                self.descriptions[name] = description
+            return existing
+        if isinstance(value, np.ndarray) and value.dtype.kind in ('i', 'f'):
+            value = NativeArray(value)
+        elif isinstance(value, np.ndarray) and value.dtype == object:
+            # object arrays of numeric cells (slices of mixed tables, arrays
+            # built from python objects) behave exactly like numeric data
+            # once converted; genuinely non-numeric objects stay untouched.
+            # Left as object, every arithmetic on them (and therefore the
+            # constraint residuals built from them) stays object too.
+            try:
+                value = NativeArray(value.astype(float))
+            except (TypeError, ValueError):
+                pass
         if self.measure == True:
-            self.type_params[name], self.size_params[name], self.minimum_params[name],self.maximum_params[name],self.average_params[name],self.std_params[name] = self.__calculate_stats(value)
+            raw = value._arr if isinstance(value, NativeArray) else value
+            self.type_params[name], self.size_params[name], self.minimum_params[name],self.maximum_params[name],self.average_params[name],self.std_params[name] = self.__calculate_stats(raw)
             try:
                 self.max_among_all_params = max(self.maximum_params[name],self.max_among_all_params)
                 self.min_among_all_params = min(self.minimum_params[name],self.min_among_all_params)
             except:
                 pass
             try:
-                self.possible_epsilon  = 1/self.max_among_all_params
+                if self.max_among_all_params:
+                    self.possible_epsilon  = 1/self.max_among_all_params
             except:
                 pass
             self.possible_big_m = self.max_among_all_params
             try:
-                self.size+=self.__calculate_total_size(value)
+                self.size+=self.__calculate_total_size(raw)
             except:
                 print("warning: exception for {name} in size calculation. Ignoring real size.")
                 self.size+=1
+        if description is not None:
+            self.descriptions[name] = description
+        elif name not in self.descriptions:
+            self.descriptions[name] = self._infer_description(name)
         if self.memorize and neglect==False:
             self.data[name]=value
-            return self.data[name]
+            if isinstance(value, _scalar_types):
+                return DataRef(self.data, name)
+            if isinstance(value, (list, tuple)) or isinstance(value, NativeArray):
+                return DataRef(self.data, name)
+            return value
         elif neglect:
             return value
         else:
@@ -196,18 +669,17 @@ class DataToolkit(FileManager):
                 "shape": obj.shape,
                 "data": obj.tolist()
             }
-        elif isinstance(obj, pd.DataFrame):
+        elif isinstance(obj, pl.DataFrame):
             return {
                 "__type__": "dataframe",
-                "index": obj.index.tolist(),
-                "columns": obj.columns.tolist(),
-                "data": obj.to_dict(orient='records')
+                "columns": obj.columns,
+                "data": obj.to_dicts()
             }
-        elif isinstance(obj, pd.Series):
+        elif isinstance(obj, pl.Series):
             return {
                 "__type__": "series",
-                "index": obj.index.tolist(),
-                "data": obj.to_dict()
+                "name": obj.name,
+                "data": obj.to_list()
             }
         elif isinstance(obj, set):
             return {
@@ -226,11 +698,11 @@ class DataToolkit(FileManager):
     def _json_decoder(self, dct):
         if "shape" in dct and "data" in dct:
             return np.array(dct["data"]).reshape(dct["shape"])
-        elif "columns" in dct and "index" in dct and "data" in dct:
-            return pd.DataFrame(data=dct["data"], index=dct["index"], columns=dct["columns"])
-        elif "index" in dct and "data" in dct:
+        elif "columns" in dct and "data" in dct:
+            return pl.DataFrame(dct["data"])
+        elif "name" in dct and "data" in dct:
             try:
-                return pd.Series(data=dct["data"], index=dct["index"])
+                return pl.Series(name=dct["name"], values=dct["data"])
             except Exception:
                 pass  
         elif isinstance(dct, dict) and "data" in dct:
@@ -371,24 +843,29 @@ class DataToolkit(FileManager):
 
         return result
 
-    def _sample_pandas_dataframe(self, name, init, size, replace=False, sort_result=False, return_indices=False, axis=None):
+    def _sample_polars_dataframe(self, name, init, size, replace=False, sort_result=False, return_indices=False, axis=None):
         axis = 0 if axis is None else axis 
 
         if axis not in [0, 1]:
-            raise ValueError("Invalid axis for Pandas DataFrame sampling. Supported axes: 0 (rows), 1 (columns)")
+            raise ValueError("Invalid axis for Polars DataFrame sampling. Supported axes: 0 (rows), 1 (columns)")
 
-        sampled_indices = self.random.choice(init.shape[axis], size=size, replace=replace)
+        if axis == 0:
+            n_rows = init.shape[0]
+            sampled_indices = self.random.choice(n_rows, size=size, replace=replace)
+        else:
+            n_cols = init.shape[1]
+            sampled_indices = self.random.choice(n_cols, size=size, replace=replace)
 
         if return_indices:
             sampled_data = sampled_indices
         else:
             if axis == 0:
-                sampled_data = init.iloc[sampled_indices, :]
+                sampled_data = init[sampled_indices, :]
             else:
-                sampled_data = init.iloc[:, sampled_indices]
+                sampled_data = init[:, sampled_indices]
 
             if sort_result:
-                sampled_data = sampled_data.sort_index(axis=axis)
+                sampled_data = sampled_data.sort(init.columns[0] if axis == 1 else init.columns)
                 
         return sampled_data
 
@@ -1068,13 +1545,10 @@ class DataToolkit(FileManager):
             
         if isinstance(init, (list, set,range, np.ndarray)):
             sample =  self._sample_list_or_array(name, init, size, replace, sort_result, return_indices, axis)
-        elif isinstance(init, pd.DataFrame):
-            sample = self._sample_pandas_dataframe(name, init, size, replace, sort_result, return_indices, axis)
+        elif isinstance(init, pl.DataFrame):
+            sample = self._sample_polars_dataframe(name, init, size, replace, sort_result, return_indices, axis)
         else:
-            raise ValueError("Unsupported data type for sampling. Supported types: set, list, range, numpy.ndarray, pandas.DataFrame")
-
-        if reset_index:
-            sample = sample.reset_index(drop=True)
+            raise ValueError("Unsupported data type for sampling. Supported types: set, list, range, numpy.ndarray, polars.DataFrame")
 
         if type_is ==set:
             sample =  set(sample)
@@ -1100,132 +1574,261 @@ class DataToolkit(FileManager):
     def load_from_excel(
         self,
         name: str,
-        dim=0,
+        dim=None,
         labels: list = None,
         appearance: list = None,
         file_name: str = "data.xlsx",
         neglect: bool = False
     ):
+        # save_to_excel lays a sheet out as `nc` header rows on top, `nr`
+        # label columns on the left, then the data block. Read the sheet as
+        # a faithful raw grid (None for every empty cell) so those regions
+        # can be sliced off exactly as written.  polars' read_excel cannot
+        # be trusted here: it silently drops fully blank leading rows and
+        # columns, which shifts the whole block and mixes labels into data.
+        try:
+            from openpyxl import load_workbook
 
-        
-        if labels is None and type(dim)!=int:
-            labels=["" for d in dim]
+            cache_key = (os.path.abspath(file_name), os.path.getmtime(file_name))
+            grids = _EXCEL_GRIDS.get(cache_key)
+            if grids is None:
+                wb = load_workbook(file_name, data_only=True)
+                try:
+                    grids = {ws.title: _sheet_grid(ws) for ws in wb.worksheets}
+                finally:
+                    wb.close()
+                for stale in [
+                    k for k in _EXCEL_GRIDS if k[0] == cache_key[0] and k != cache_key
+                ]:
+                    del _EXCEL_GRIDS[stale]
+                _EXCEL_GRIDS[cache_key] = grids
+            if name not in grids:
+                raise ValueError(
+                    f"Sheet '{name}' not found; available sheets: {sorted(grids)}"
+                )
+            grid = grids[name]
+        except ValueError:
+            raise
+        except Exception as e:
+            raise ValueError(f"Cannot read sheet '{name}':\n  {e}")
 
-        if dim==0:
-            labels=[""]
-            appearance=[0,0]
+        if grid.size == 0:
+            raise ValueError(f"Sheet '{name}' is empty")
+
+        if dim is None:
+            # Bare read: dt.lfe(name="...") alone must work, so derive
+            # dim/labels/appearance from how the sheet is laid out.
+            if labels is not None or appearance is not None:
+                raise ValueError(
+                    "dim is required when labels or appearance are given; "
+                    "omit them to let load_from_excel infer the sheet layout"
+                )
+            dim, labels, appearance = _infer_sheet_layout(name, grid)
+
+        scalar = (dim == 0)
+
+        if scalar:
+            labels = [""]
+            appearance = [0, 0]
+        elif isinstance(dim, int) and not isinstance(dim, bool):
+            # Mirror save_to_excel: a non-zero int describes a single axis.
+            dim = [dim]
+
+        if labels is None and not isinstance(dim, int):
+            labels = ["" for _ in dim]
 
         if isinstance(dim, list) and len(dim) >= 1 and isinstance(dim[0], set):
             dim = [len(d) for d in dim]
         dim = self.__fix_dims(dim, is_range=True)
 
-        def _format_index_key(level_vals, label, key):
-            if label:
-                return label + str(key)
-            if key in level_vals:
-                return key
-            ks = str(key)
-            if ks in level_vals:
-                return ks
-            return key
+        if isinstance(dim, set):
+            raise TypeError(
+                "load_from_excel(dim=...) expects sizes, not a set of "
+                f"labels: {sorted(dim)!r}"
+            )
 
-        if len(appearance) == 2:
-            if (
-                (appearance[0] == 1 and appearance[1] == 1)
-                or (appearance[0] == 1 and appearance[1] == 0)
-                or (appearance[0] == 0 and appearance[1] == 0)
-                or (appearance[0] == 0 and appearance[1] == 1)
-            ):
-                result = pd.read_excel(
-                    file_name, index_col=0, sheet_name=name
-                ).to_numpy()
-
+        if appearance is None and not isinstance(dim, int):
+            ndim = len(dim)
+            if ndim <= 1:
+                appearance = [0, 1]
             else:
-                header_arg = [i for i in range(appearance[1])] if appearance[1] > 0 else None
-                index_arg = [i for i in range(appearance[0])] if appearance[0] > 0 else None
+                appearance = [ndim - 1, 1]
 
-                try:
-                    parameter = pd.read_excel(
-                        file_name,
-                        header=header_arg,
-                        index_col=index_arg,
-                        sheet_name=name,
-                    )
-                except Exception as e:
-                    raise ValueError(
-                        f"Cannot read sheet '{name}' with header={header_arg} "
-                        f"and index_col={index_arg}:\n  {e}"
-                    )
+        if not (isinstance(appearance, (list, tuple)) and len(appearance) == 2):
+            raise ValueError("appearance must be a list or tuple of length 2")
 
-                created_par = np.zeros(tuple(len(x) for x in dim), dtype=float)
+        nr, nc = appearance
+        if not (isinstance(nr, int) and isinstance(nc, int)):
+            raise TypeError("appearance values must be integers")
+        if nr < 0 or nc < 0:
+            raise ValueError(f"Invalid appearance values: nr={nr}, nc={nc}")
 
-                row_index = parameter.index
-                col_index = parameter.columns
+        block = grid[nc:, nr:]
+        if block.size == 0:
+            raise ValueError(
+                f"Sheet '{name}' has no data cells for appearance=[{nr},{nc}]"
+            )
 
-                for keys in it.product(*dim):
-                    try:
-                        row_elems = []
-                        if isinstance(row_index, pd.MultiIndex):
-                            for i in range(appearance[0]):
-                                level_vals = row_index.levels[i]
-                                row_elems.append(_format_index_key(level_vals, labels[i], keys[i]))
-                        else:
-                            level_vals = row_index
-                            row_elems.append(_format_index_key(level_vals, labels[0], keys[0]))
+        if scalar:
+            # dim == 0 promises a single bare cell (a bare read only lands
+            # here when _infer_sheet_layout saw exactly one value).
+            # save_to_excel infers a shape for multi-cell arrays instead, so
+            # a sheet with more than one value cannot be described by
+            # dim == 0 -- say so rather than handing back whatever sits in
+            # the top-left corner.
+            # Filter out empty cells -- a scalar sheet may hold its value
+            # anywhere in the used range, with surrounding blanks that
+            # arrive as None (object columns), NaN (numeric columns) or "".
+            non_null = np.array(
+                [
+                    v
+                    for v in block.ravel()
+                    if v is not None
+                    and not (isinstance(v, float) and np.isnan(v))
+                    and v != ""
+                ],
+                dtype=object,
+            )
+            if non_null.size != 1:
+                raise ValueError(
+                    f"Sheet '{name}' holds {int(non_null.size)} values but "
+                    "dim=0 describes a single bare cell; pass dim=<shape> "
+                    "to read an array"
+                )
+            result = non_null[0]
+            try:
+                result = float(result)
+            except (TypeError, ValueError):
+                pass
+            return self.__keep(name, result, neglect)
 
-                        row_key = tuple(row_elems) if appearance[0] > 1 else row_elems[0]
-                        col_elems = []
-                        if appearance[1] > 0:
-                            if isinstance(col_index, pd.MultiIndex):
-                                for j in range(appearance[1]):
-                                    level_vals = col_index.levels[j]
-                                    col_elems.append(
-                                        _format_index_key(
-                                            level_vals,
-                                            labels[appearance[0] + j],
-                                            keys[appearance[0] + j],
-                                        )
-                                    )
-                                col_key = tuple(col_elems)
-                            else:
-                                level_vals = col_index
-                                col_elems.append(
-                                    _format_index_key(
-                                        level_vals,
-                                        labels[appearance[0]],
-                                        keys[appearance[0]],
-                                    )
-                                )
-                                col_key = col_elems[0]
-                        else:
-                            col_key = None
-                        if appearance[0] == 0:
-                            val = parameter.loc[:, col_key]
-                        elif appearance[1] == 0:
-                            val = parameter.loc[row_key]
-                        else:
-                            val = parameter.loc[row_key, col_key]
-                        if isinstance(val, (pd.Series, pd.DataFrame, np.ndarray)):
-                            arr = np.array(val).flatten()
-                            val = arr[0] if arr.size > 0 else np.nan
-                        created_par[keys] = val
-                    except Exception:
-                        created_par[keys] = np.nan
+        sizes = tuple(
+            len(d) if not isinstance(d, (int, np.integer)) else int(d)
+            for d in dim
+        )
 
-                result = created_par
+        # dim[:nr] indexes the label columns, and every header row that
+        # really labels the value region indexes the next dims.  Values are
+        # then placed by those labels -- the way the previous pandas loader
+        # did its .loc lookups -- so the row order in the sheet never has to
+        # match C order (e.g. scp_ht groups its rows h-outer/t-inner while
+        # its label columns are ordered t, h).
+        header = grid[:nc, nr:]
+        col_dim_rows = [
+            i
+            for i in range(nc)
+            if any(header[i, j] is not None for j in range(header.shape[1]))
+        ]
+        nr_eff = nr
+        if nr_eff == 0 and not col_dim_rows and len(sizes) > 0:
+            # No label columns and no labelled header row: keep the old
+            # pandas behaviour (index_col=0) and read the first column as
+            # the index of the dimensions.
+            nr_eff = 1
+            header = grid[:nc, nr_eff:]
+            col_dim_rows = [
+                i
+                for i in range(nc)
+                if any(header[i, j] is not None for j in range(header.shape[1]))
+            ]
+        label_grid = grid[nc:, :nr_eff]
+        block = grid[nc:, nr_eff:]
 
-        else:
-            par = pd.read_excel(file_name, index_col=0, sheet_name=name).to_numpy()
-            result = par.reshape(par.shape[0],)
+        if len(sizes) != nr_eff + len(col_dim_rows):
+            raise ValueError(
+                f"Sheet '{name}': appearance=[{nr},{nc}] splits the sheet "
+                f"into {nr_eff} label column(s) and {len(col_dim_rows)} "
+                f"labelled header row(s), i.e. {nr_eff + len(col_dim_rows)} "
+                f"dimension(s), but dim has {len(sizes)}"
+            )
+        if not col_dim_rows and block.shape[1] > 1:
+            raise ValueError(
+                f"Sheet '{name}' has {block.shape[1]} value columns but no "
+                "labelled header row to tell them apart; pass appearance "
+                "with nc >= 1"
+            )
 
-        if dim == 0:
-            result = result[0][0]
-        elif len(dim) == 1:
-            result = np.reshape(result, [len(dim[0]),])
-        else:
-            pass
+        # label -> index map per dimension. Prefer exact matching against
+        # the declared keys -- the key itself, its str() form and the
+        # labels[i] + str(key) form -- which is exactly what the previous
+        # pandas loader looked up with .loc.  Junk that matches nothing
+        # (a header row read as data when nc undercounts the header rows,
+        # rows for keys beyond the declared dim, blank rows) then falls
+        # out as unmatched instead of shifting every index.  Sheets whose
+        # labels the keys cannot reproduce ('t0', 'i3' with empty labels)
+        # match nothing exactly, so they keep the order-of-first-appearance
+        # map.
+        def _build_map(cells, size, prefix=""):
+            cells = [v for v in cells if v is not None]
+            prefix = str(prefix) if prefix else ""
+            exact = {k: k for k in range(size)}
+            exact.update({str(k): k for k in range(size)})
+            if prefix:
+                exact.update({prefix + str(k): k for k in range(size)})
+            if cells and sum(1 for v in cells if v in exact) * 2 >= len(cells):
+                return exact
+            m = {}
+            for v in cells:
+                if v not in m:
+                    m[v] = len(m)
+            return m
 
-        return self.__keep(name, result, neglect)
+        row_maps = [
+            _build_map(
+                label_grid[:, j],
+                sizes[j],
+                labels[j] if j < len(labels) else "",
+            )
+            for j in range(nr_eff)
+        ]
+        col_maps = [
+            _build_map(
+                header[i_h, :],
+                sizes[nr_eff + slot],
+                labels[nr_eff + slot] if nr_eff + slot < len(labels) else "",
+            )
+            for slot, i_h in enumerate(col_dim_rows)
+        ]
+
+        out = np.full(sizes, np.nan, dtype=float)
+        for i in range(block.shape[0]):
+            ridx = []
+            for j in range(nr_eff):
+                idx = row_maps[j].get(label_grid[i, j], -1)
+                if idx < 0 or idx >= sizes[j]:
+                    # Blank label: rows the sheet keeps beyond the declared
+                    # dim (left-over formatting) are ignored.
+                    break
+                ridx.append(idx)
+            else:
+                for k in range(block.shape[1]):
+                    cidx = []
+                    for slot, i_h in enumerate(col_dim_rows):
+                        idx = col_maps[slot].get(header[i_h, k], -1)
+                        if idx < 0 or idx >= sizes[nr_eff + slot]:
+                            break
+                        cidx.append(idx)
+                    else:
+                        try:
+                            out[tuple(ridx) + tuple(cidx)] = float(block[i, k])
+                        except (TypeError, ValueError):
+                            # empty or non-numeric cell: reported below
+                            pass
+
+        missing = np.argwhere(np.isnan(out))
+        if missing.size:
+            spots = ", ".join(
+                "(" + ", ".join(str(int(x)) for x in idx) + ")"
+                for idx in missing[:5]
+            )
+            raise ValueError(
+                f"Sheet '{name}' is missing {len(missing)} of {out.size} "
+                f"value(s) for dim={list(sizes)}, appearance=[{nr},{nc}] "
+                f"(e.g. at {spots}); check dim, labels and appearance "
+                "against the sheet layout"
+            )
+
+        return self.__keep(name, out, neglect)
     
     def save_to_excel(
         self,
@@ -1236,35 +1839,54 @@ class DataToolkit(FileManager):
         appearance: list = None,
         file_name: str = "data.xlsx"
     ) -> None:
-        import pandas as pd
-        from openpyxl import Workbook, load_workbook
-        import itertools as it
-        import os
-        import numpy as np
-
         if not (isinstance(dim, (list, tuple)) or isinstance(dim, int)):
             raise TypeError("dim must be int or list/tuple")
 
-        if appearance is None:
-            if isinstance(dim, int):
-                appearance = [0, max(1, array.ndim - 1)]
-            else:
-                appearance = [0, max(1, len(dim) - 1)]
+        arr = np.asarray(array, dtype=float)
 
-        if labels is None:
-            if isinstance(dim, int):
-                labels = [""]
+        scalar_sheet = False
+        if isinstance(dim, int):
+            if dim == 0:
+                if arr.size == 1:
+                    # ``dim == 0`` denotes a single value: ``load_from_excel``
+                    # reads it back as ``result[0][0]``, so lay it out as one
+                    # bare cell with no header rows or columns.
+                    scalar_sheet = True
+                    dim = []
+                    appearance = [0, 0]
+                else:
+                    # No explicit shape was given, so lay the array out as-is.
+                    dim = list(arr.shape)
             else:
-                labels = [""] * len(dim)
+                # A non-zero int describes a single axis of that length.
+                dim = [dim]
 
         if isinstance(dim, (list, tuple)) and dim and isinstance(dim[0], set):
             dim = [len(s) for s in dim]
 
-        if hasattr(self, '__fix_dims'):
-            try:
-                dim = self.__fix_dims(dim, is_range=True)
-            except Exception as e:
-                raise RuntimeError(f"Error in __fix_dims: {e}")
+        if appearance is None:
+            ndim = len(dim)
+            if ndim <= 1:
+                appearance = [0, 1]
+            else:
+                appearance = [ndim - 1, 1]
+
+        if labels is None:
+            labels = [""] * max(1, len(dim))
+
+        # NOTE: this used to be guarded by `hasattr(self, '__fix_dims')`,
+        # which is always False -- the string literal is not name-mangled, so
+        # it never matched the real `_DataToolkit__fix_dims`. Call it directly,
+        # exactly like load_from_excel does.
+        dim = self.__fix_dims(dim, is_range=True)
+
+        if isinstance(dim, set):
+            # __fix_dims turns a list of strings into a set (that is a label
+            # domain, not a shape). There is no meaningful sheet layout for it.
+            raise TypeError(
+                "save_to_excel(dim=...) expects sizes, not a set of "
+                f"labels: {sorted(dim)!r}"
+            )
 
         def _size(x):
             return x if isinstance(x, int) else len(x)
@@ -1274,10 +1896,7 @@ class DataToolkit(FileManager):
 
         nr, nc = appearance
 
-        if isinstance(dim, int):
-            dim_len = 1
-        else:
-            dim_len = len(dim)
+        dim_len = len(dim)
 
         if not (isinstance(nr, int) and isinstance(nc, int)):
             raise TypeError("appearance values must be integers")
@@ -1288,17 +1907,27 @@ class DataToolkit(FileManager):
         if labels is not None and len(labels) < dim_len:
             raise ValueError(f"labels length {len(labels)} is less than dim length {dim_len}")
 
-        arr = np.asarray(array, dtype=float)
+        if scalar_sheet:
+            shape = ()
+        elif dim:
+            shape = tuple(_size(d) for d in dim)
+        else:
+            shape = arr.shape
+        mat = arr.reshape(shape)
 
-        try:
-            shape = tuple(_size(d) for d in dim) if dim else arr.shape
-        except Exception as e:
-            raise ValueError(f"Error processing dim values: {e}")
-
-        try:
-            mat = arr.reshape(shape)
-        except Exception as e:
-            raise ValueError(f"Cannot reshape array of size {arr.size} into shape {shape}: {e}")
+        # The sheet only faithfully represents `dim` when the row axes
+        # (dim[:nr]) and the column axes (dim[nr:nr+nc]) account for every
+        # axis. Otherwise `_save_2d_sheet` indexes `mat` with a partial tuple
+        # and dies on `float(...)`, so reject it up front, readably.
+        covered = 1
+        for d in dim[:nr + nc]:
+            covered *= _size(d)
+        if covered != mat.size:
+            raise ValueError(
+                f"appearance nr={nr}, nc={nc} lays out {covered} cells but "
+                f"dim carries {mat.size}; nr + nc must equal len(dim)="
+                f"{dim_len} unless every uncovered axis has size 1"
+            )
 
         col_dims = dim[nr:nr + nc]
         total_columns = 1
@@ -1307,81 +1936,90 @@ class DataToolkit(FileManager):
 
         MAX_COLUMNS = 16384
 
-        try:
-            if total_columns <= MAX_COLUMNS:
-                wb = load_workbook(file_name) if os.path.exists(file_name) else Workbook()
-                if name in wb.sheetnames:
-                    std = wb[name]
-                    wb.remove(std)
-                ws = wb.create_sheet(title=name)
+        if total_columns <= MAX_COLUMNS:
+            self._save_2d_sheet(name, mat, dim, nr, nc, labels, file_name, _size)
+        else:
+            self._save_long_format(name, arr, dim, labels, file_name, _size)
 
-                dim_sizes = [_size(d) for d in col_dims]
-                all_col_keys = list(it.product(*(range(s) for s in dim_sizes)))
+    def _save_2d_sheet(self, name, mat, dim, nr, nc, labels, file_name, _size):
+        from openpyxl import Workbook, load_workbook
+        import itertools as it
+        import os
 
-                for level in range(nc):
-                    for col_idx, keys in enumerate(all_col_keys):
-                        label_val = f"{labels[nr + level]}{keys[level]}"
-                        ws.cell(row=level + 1, column=nr + col_idx + 1, value=label_val)
+        wb = load_workbook(file_name) if os.path.exists(file_name) else Workbook()
+        if name in wb.sheetnames:
+            wb.remove(wb[name])
+        ws = wb.create_sheet(title=name)
 
-                row_dims = dim[:nr]
-                row_keys = list(it.product(*(range(_size(d)) for d in row_dims))) if nr else [()]
+        col_dims = dim[nr:nr + nc]
+        dim_sizes = [_size(d) for d in col_dims]
+        all_col_keys = list(it.product(*(range(s) for s in dim_sizes)))
 
-                for row_idx, rk in enumerate(row_keys):
-                    for i in range(nr):
-                        ws.cell(row=nc + 1 + row_idx, column=i + 1, value=f"{labels[i]}{rk[i]}")
+        for level in range(nc):
+            for col_idx, keys in enumerate(all_col_keys):
+                label_val = f"{labels[nr + level]}{keys[level]}"
+                ws.cell(row=level + 1, column=nr + col_idx + 1, value=label_val)
 
-                for row_idx, rk in enumerate(row_keys):
-                    for col_idx, ck in enumerate(all_col_keys):
-                        full_idx = rk + ck
-                        try:
-                            val = mat[full_idx]
-                        except Exception as e:
-                            raise IndexError(f"Failed to access element at index {full_idx}: {e}")
-                        ws.cell(row=nc + 1 + row_idx, column=nr + col_idx + 1, value=float(val))
+        row_dims = dim[:nr]
+        row_keys = list(it.product(*(range(_size(d)) for d in row_dims))) if nr else [()]
 
-                if 'Sheet' in wb.sheetnames and len(wb.sheetnames) > 1:
-                    std = wb['Sheet']
-                    wb.remove(std)
+        for row_idx, rk in enumerate(row_keys):
+            for i in range(nr):
+                ws.cell(row=nc + 1 + row_idx, column=i + 1, value=f"{labels[i]}{rk[i]}")
 
-                wb.save(file_name)
-                wb.close()
-                return
+        for row_idx, rk in enumerate(row_keys):
+            for col_idx, ck in enumerate(all_col_keys):
+                full_idx = rk + ck
+                val = float(mat[full_idx])
+                ws.cell(row=nc + 1 + row_idx, column=nr + col_idx + 1, value=val)
 
-        except Exception as e:
-            print(f"Warning: Couldn't save in 2D format ({e}). Falling back to long format.")
+        if 'Sheet' in wb.sheetnames and len(wb.sheetnames) > 1:
+            wb.remove(wb['Sheet'])
 
-        dim_names = labels[:len(dim)] if labels else [f"dim_{i}" for i in range(len(dim))]
-        all_indices = list(it.product(*(range(_size(d)) for d in dim)))
-        data = []
-        for idx in all_indices:
-            try:
-                val = float(arr[idx])
-            except Exception as e:
-                raise IndexError(f"Error accessing array element {idx}: {e}")
-            data.append((*idx, val))
+        wb.save(file_name)
+        wb.close()
+        _invalidate_grids(file_name)
 
-        df = pd.DataFrame(data, columns=[*dim_names, "Value"])
+    def _save_long_format(self, name, arr, dim, labels, file_name, _size):
+        from openpyxl import Workbook, load_workbook
+        import itertools as it
+        import os
 
-        if os.path.exists(file_name):
-            try:
-                book = load_workbook(file_name)
-                if name in book.sheetnames:
-                    std = book[name]
-                    book.remove(std)
-                book.save(file_name)
-                book.close()
-            except Exception as e:
-                print(f"Warning: Couldn't modify existing file ({e}). Overwriting.")
+        dim_names = []
+        for i, lab in enumerate(labels[:len(dim)] if labels else []):
+            lab = str(lab).strip() if lab is not None else ""
+            base = lab or f"dim_{i}"
+            while base in dim_names:
+                base = f"{base}_{len(dim_names)}"
+            dim_names.append(base)
+        value_col = "Value"
+        while value_col in dim_names:
+            value_col += "_"
 
-        try:
-            with pd.ExcelWriter(
-                file_name,
-                engine='openpyxl',
-                mode='a' if os.path.exists(file_name) else 'w'
-            ) as writer:
-                df.to_excel(writer, sheet_name=name, index=False)
-        except Exception as e:
-            raise IOError(f"Failed to write dataframe to Excel: {e}")
+        # Written straight to openpyxl, like _save_2d_sheet: the long format
+        # only exists for sheets whose column count exceeds what a 2-D layout
+        # can hold, and polars' ExcelWriter is not available in every version.
+        wb = load_workbook(file_name) if os.path.exists(file_name) else Workbook()
+        if name in wb.sheetnames:
+            wb.remove(wb[name])
+        ws = wb.create_sheet(title=name)
+
+        for col, dim_name in enumerate(dim_names, start=1):
+            ws.cell(row=1, column=col, value=dim_name)
+        ws.cell(row=1, column=len(dim_names) + 1, value=value_col)
+
+        row = 2
+        for idx in it.product(*(range(_size(d)) for d in dim)):
+            for i, v in enumerate(idx, start=1):
+                ws.cell(row=row, column=i, value=int(v))
+            ws.cell(row=row, column=len(dim_names) + 1, value=float(arr[idx]))
+            row += 1
+
+        if 'Sheet' in wb.sheetnames and len(wb.sheetnames) > 1:
+            wb.remove(wb['Sheet'])
+        wb.save(file_name)
+        wb.close()
+        _invalidate_grids(file_name)
 
     def save(self, name, format="json"):
         directory = os.path.join('results', 'data')
@@ -1403,8 +2041,8 @@ class DataToolkit(FileManager):
 
         elif format == "parquet":
             try:
-                df = pd.DataFrame(self.data)
-                df.to_parquet(file_path, index=False)
+                df = pl.DataFrame(self.data)
+                df.write_parquet(file_path)
                 print(f"Data successfully exported to Parquet at: {file_path}")
             except Exception as e:
                 print(f"An error occurred while saving Parquet: {e}")
@@ -1436,8 +2074,8 @@ class DataToolkit(FileManager):
                 print(f"Data successfully imported from JSON at: {file_path}")
 
             elif extension == "parquet":
-                df = pd.read_parquet(file_path)
-                data = df.to_dict(orient='records')
+                df = pl.read_parquet(file_path)
+                data = df.to_dicts()
                 print(f"Data successfully imported from Parquet at: {file_path}")
 
             else:
@@ -1447,5 +2085,174 @@ class DataToolkit(FileManager):
             data = None
 
         return self.__keep(name, data, neglect)
+
+    def report(self, style=1, width=78, box=None):
+        from ..helpers.reporter import report, format_string
+        import numpy as _np
+
+        _own_box = box is None
+
+        if not self.data:
+            if _own_box:
+                box = report(width=width, style=style)
+                box._buffered = True
+            box.top(left="Data")
+            box.row(left="  Empty dataset.")
+            box.bottom()
+            if _own_box:
+                box.render()
+            return
+        if _own_box:
+            box = report(width=width, style=style)
+            box._buffered = True
+
+        def _count_nonzero(value):
+            if isinstance(value, NativeArray):
+                value = value._arr
+            if isinstance(value, _np.ndarray):
+                return int(_np.count_nonzero(value))
+            if isinstance(value, (int, float)):
+                return 1 if value != 0 else 0
+            if isinstance(value, (list, tuple)):
+                return sum(1 for x in value if x != 0)
+            if isinstance(value, dict):
+                return sum(1 for v in value.values() if v != 0)
+            if isinstance(value, set):
+                return len(value)
+            if isinstance(value, str):
+                return len(value)
+            return 1
+
+        def _type_char(value):
+            if isinstance(value, NativeArray):
+                value = value._arr
+            if isinstance(value, _np.ndarray):
+                ndim = value.ndim
+            elif isinstance(value, (list, tuple)):
+                ndim = _np.asarray(value).ndim
+            elif isinstance(value, (int, float, _np.generic)):
+                ndim = 0
+            else:
+                ndim = 0
+            if ndim == 0: return "S"
+            if ndim == 1: return "V"
+            if ndim == 2: return "M"
+            return "T"
+
+        _box_w = getattr(box, 'width', None) or width
+        _content = max(int(_box_w) - 4, 0)
+
+        # Column layout priority: value columns (Min/Max/Ave/Std) and
+        # the Domain label always show their full content — only the
+        # Name column (leftmost) may be shortened with a trailing "..."
+        # when the row runs out of space.
+
+        def _fit(text, col_width):
+            text = str(text)
+            if len(text) <= col_width:
+                return text
+            if col_width <= 3:
+                return text[:col_width]
+            return text[:col_width - 3] + "..."
+
+        _rows = []
+        for name, value in self.data.items():
+            if value is None:
+                continue
+
+            _domain = str(self.type_params.get(name, '?')).strip()
+            _size = self.size_params.get(name, '?')
+            _min = self.minimum_params.get(name, '?')
+            _max = self.maximum_params.get(name, '?')
+            _ave = self.average_params.get(name, '?')
+            _std = self.std_params.get(name, '?')
+
+            try:
+                _nz = _count_nonzero(value)
+            except Exception:
+                _nz = '?'
+
+            try:
+                _tchar = _type_char(value)
+            except Exception:
+                _tchar = '?'
+
+            _cells = []
+            if _min is not None and _max is not None:
+                try:
+                    _cells = [format_string(_min), format_string(_max),
+                              format_string(_ave), format_string(_std)]
+                except Exception:
+                    _size, _cells = '?', []
+            _rows.append((name, _domain, _tchar, _size, _nz, _cells))
+
+        # Data-driven widths for the four value columns (a floor of 7
+        # keeps the historical look); the Domain column fits its widest
+        # label (never trimmed), and T/S/NZ fit their widest entries.
+        _vw = [7, 7, 7, 7]
+        for _r in _rows:
+            if _r[5]:
+                for _j in range(4):
+                    if len(_r[5][_j]) > _vw[_j]:
+                        _vw[_j] = len(_r[5][_j])
+        _s_w = max(3, max((len(str(_r[3])) for _r in _rows), default=0))
+        _nz_w = max(4, max((len(str(_r[4])) for _r in _rows), default=0))
+        _domain_w = max(6, max((len(_r[1]) for _r in _rows), default=0))
+
+        # Whatever room remains after values, domain and T/S/NZ belongs
+        # to the Name column — it is the only column allowed to be
+        # trimmed (the floor of 4 keeps the "Name" header plus at least
+        # one name character before the "...").
+        _name_w = max(
+            _content - _domain_w - _s_w - _nz_w - sum(_vw) - 9, 4)
+
+        def _emit_row(prefix, cells):
+            """Emit one table row.
+
+            Value cells wrap onto continuation rows aligned under the
+            value columns instead of being clipped, so values are
+            always shown in full.
+            """
+            indent = " " * min(len(prefix), max(_content - 8, 0))
+            line = prefix
+            for _j, cell in enumerate(cells):
+                piece = str(cell).rjust(_vw[_j])
+                while True:
+                    sep = " " if line and line[-1] != " " else ""
+                    if len(line) + len(sep) + len(piece) <= _content:
+                        line += sep + piece
+                        break
+                    box.row(left=line)
+                    line = indent
+                    if len(line) + len(piece) <= _content:
+                        continue
+                    # A single cell wider than the row: split it across
+                    # continuation rows — full content, never trimmed.
+                    room = _content - len(line)
+                    if room <= 0:
+                        break
+                    box.row(left=line + piece[:room])
+                    piece = piece[room:]
+                    line = indent
+            box.row(left=line)
+
+        box.top(left="Data")
+        _emit_row(
+            f"{'Name':<{_name_w}} {'Domain':<{_domain_w}} "
+            f"{'T':>1} {'S':>{_s_w}} {'NZ':>{_nz_w}} ",
+            ['Min', 'Max', 'Ave', 'Std'])
+
+        for name, _domain, _tchar, _size, _nz, _cells in _rows:
+            _emit_row(
+                f"{_fit(name, _name_w):<{_name_w}} "
+                f"{_domain:<{_domain_w}} "
+                f"{_tchar:>1} {_size:>{_s_w}} {_nz:>{_nz_w}} ",
+                _cells)
+
+        box.bottom()
+
+        if _own_box:
+            box.render()
+
     
 data_toolkit = DataToolkit

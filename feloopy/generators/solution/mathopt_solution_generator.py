@@ -46,7 +46,7 @@ def generate_solution(features):
 
     match debug:
 
-        case False:
+        case False | True:
 
             match directions[objective_id]:
 
@@ -73,18 +73,35 @@ def generate_solution(features):
                 model_object.SetNumThreads(thread_count)
 
             if relative_gap != None:
-                solverParams.SetDoubleParam(
-                    solverParams.RELATIVE_MIP_GAP, relative_gap)
+                solver_options['relative_mip_gap'] = relative_gap
 
             if absolute_gap != None:
-                "None"
+                solver_options['absolute_mip_gap'] = absolute_gap
 
             if log:
 
                 "None"
 
+            solve_params = None
+            if solver_options:
+                param_kwargs = {}
+                if 'relative_mip_gap' in solver_options:
+                    param_kwargs['relative_gap_tolerance'] = solver_options['relative_mip_gap']
+                if 'absolute_mip_gap' in solver_options:
+                    param_kwargs['absolute_gap_tolerance'] = solver_options['absolute_mip_gap']
+                if param_kwargs:
+                    solve_params = mathopt.SolveParameters(**param_kwargs)
+
             time_solve_begin = timeit.default_timer()
-            result = mathopt.solve(model_object, solver_type=mathopt_solver_selector[solver_name],params=solver_options)
+            try:
+                result = mathopt.solve(model_object, solver_type=mathopt_solver_selector[solver_name], params=solve_params)
+            except AttributeError as e:
+                # ortools 9.15 StatusNotOk lacks canonical_code; solver likely unavailable
+                if 'canonical_code' in str(e):
+                    raise RuntimeError(
+                        "Solver '%s' failed in mathopt (solver may not be available "
+                        "in this ortools build): %s" % (solver_name, e)) from e
+                raise
             time_solve_end = timeit.default_timer()
             
             try:

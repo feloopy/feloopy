@@ -142,3 +142,33 @@ def generate_variable(interface_name, model_object, variable_type, variable_name
 
             from .variable import rsome_dro_variable_generator
             return rsome_dro_variable_generator.generate_variable(**inputs)
+
+        case 'uno':
+
+            from .variable import uno_variable_generator
+            return uno_variable_generator.generate_variable(**inputs)
+
+        case 'bonmin' | 'couenne':
+
+            from .variable import coin_variable_generator
+            return coin_variable_generator.generate_variable(**inputs)
+
+        case 'scip':
+
+            from .variable import scip_variable_generator
+            return scip_variable_generator.generate_variable(**inputs)
+
+        case 'hexaly':
+
+            from .variable import hexaly_variable_generator
+            return hexaly_variable_generator.generate_variable(**inputs)
+
+        case 'mosek':
+
+            from .variable import mosek_variable_generator
+            return mosek_variable_generator.generate_variable(**inputs)
+
+        case 'picat':
+
+            from .variable import picat_variable_generator
+            return picat_variable_generator.generate_variable(**inputs)

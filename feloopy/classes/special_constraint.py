@@ -358,3 +358,299 @@ class SpecialConstraintClass:
         
         self.con(expr >= rhs - z * big_m)
         self.con(expr <= -1*rhs + (1 - z) * big_m)
+
+    # ── Generic constraint methods (work across all interfaces) ──────────
+
+    def _is_gurobi(self):
+        return self.features.get('interface_name', '') == 'gurobi'
+
+    def _is_cplex(self):
+        return self.features.get('interface_name', '') == 'cplex'
+
+    def _is_xpress(self):
+        return self.features.get('interface_name', '') == 'xpress'
+
+    def _get_grb(self, v):
+        try:
+            return v._gurobi_var
+        except AttributeError:
+            return v
+
+    def _next_ind(self):
+        try:
+            self.features['indicators'].append(self.features['indicators'][-1] + 1)
+        except:
+            self.features['indicators'] = [0]
+        return self.features['indicators'][-1]
+
+    def con_sos1(self, variables: List, name: Optional[str] = None):
+        """
+        SOS1 constraint: at most one variable in the list can be non-zero.
+        Uses Gurobi/CPLEX native SOS1 when available, otherwise sum <= 1.
+
+        Parameters:
+            variables: List of variables.
+            name: Optional constraint name.
+        """
+        if self._is_gurobi():
+            import gurobipy as grb
+            grb_vars = [self._get_grb(v) for v in variables]
+            kwargs = {}
+            if name:
+                kwargs['name'] = name
+            return self.model.addSOS(grb_vars, 1, **kwargs)
+        if self._is_cplex():
+            self.model.model_object.add_sos(list(variables), 1)
+            return
+        self.con(sum(variables) <= 1)
+
+    def con_sos2(self, variables: List, name: Optional[str] = None):
+        """
+        SOS2 constraint: at most two adjacent variables can be non-zero.
+        Uses Gurobi/CPLEX native SOS2 when available, otherwise big-M formulation.
+
+        Parameters:
+            variables: List of variables.
+            name: Optional constraint name.
+        """
+        if self._is_gurobi():
+            import gurobipy as grb
+            grb_vars = [self._get_grb(v) for v in variables]
+            kwargs = {}
+            if name:
+                kwargs['name'] = name
+            return self.model.addSOS(grb_vars, 2, **kwargs)
+        if self._is_cplex():
+            self.model.model_object.add_sos(list(variables), 2)
+            return
+        n = len(variables)
+        if n <= 2:
+            self.con(sum(variables) <= sum(variables))
+            return
+        big_m = 1e6
+        cid = self._next_ind()
+        lam = [self.pvar(f"_sos2_lam{cid}_{i}", bound=[0, 1]) for i in range(n - 1)]
+        y = [self.bvar(f"_sos2_y{cid}_{i}") for i in range(n - 1)]
+        self.con(sum(y) <= 1)
+        for i in range(n - 1):
+            self.con(lam[i] <= y[i])
+            self.con(lam[i] <= big_m * y[i])
+        self.con(sum(lam) == 1)
+        for i in range(n):
+            self.con(variables[i] == (lam[i - 1] if i > 0 else 0) + (lam[i] if i < n - 1 else 0))
+
+    def con_indicator(self, indicator_var, binval: int, lhs, rhs: float = 0,
+                      sense: str = '<=', big_m: float = 1e9, name: Optional[str] = None):
+        """
+        Indicator constraint: if indicator_var == binval, then lhs [sense] rhs.
+        Uses Gurobi/CPLEX native indicator when available, otherwise big-M formulation.
+
+        Parameters:
+            indicator_var: A binary variable.
+            binval: 0 or 1.
+            lhs: Left-hand side expression.
+            rhs: Right-hand side value.
+            sense: '<=', '>=', or '=='.
+            big_m: Big-M value for generic fallback.
+            name: Optional constraint name.
+        """
+        if self._is_gurobi():
+            import gurobipy as grb
+            bin_var = self._get_grb(indicator_var)
+            if sense == '<=':
+                constr = self.model.addConstr(lhs <= rhs)
+            elif sense == '>=':
+                constr = self.model.addConstr(lhs >= rhs)
+            else:
+                constr = self.model.addConstr(lhs == rhs)
+            gen = self.model.addGenConstrIndicator(bin_var, binval, constr)
+            if name:
+                pass
+            return gen
+        if self._is_cplex():
+            if sense == '<=':
+                ct = (lhs <= rhs)
+            elif sense == '>=':
+                ct = (lhs >= rhs)
+            else:
+                ct = (lhs == rhs)
+            self.model.model_object.indicator_constraint(indicator_var, ct, binval)
+            return
+        z = indicator_var
+        if binval == 1:
+            if sense == '<=':
+                self.con(lhs <= rhs + (1 - z) * big_m)
+            elif sense == '>=':
+                self.con(lhs >= rhs - (1 - z) * big_m)
+            else:
+                self.con(lhs <= rhs + (1 - z) * big_m)
+                self.con(lhs >= rhs - (1 - z) * big_m)
+        else:
+            if sense == '<=':
+                self.con(lhs <= rhs + z * big_m)
+            elif sense == '>=':
+                self.con(lhs >= rhs - z * big_m)
+            else:
+                self.con(lhs <= rhs + z * big_m)
+                self.con(lhs >= rhs - z * big_m)
+
+    def con_max_of(self, result_var, variables: List, name: Optional[str] = None):
+        """
+        result_var = max(variables).
+        Uses Gurobi/CPLEX native max when available, otherwise auxiliary formulation.
+
+        Parameters:
+            result_var: The result variable.
+            variables: List of variables.
+            name: Optional constraint name.
+        """
+        if self._is_gurobi():
+            grb_vars = [self._get_grb(v) for v in variables]
+            res = self._get_grb(result_var)
+            kwargs = {}
+            if name:
+                kwargs['name'] = name
+            return self.model.addGenConstrMax(res, grb_vars, **kwargs)
+        for v in variables:
+            self.con(result_var >= v)
+        big_m = 1e9
+        cid = self._next_ind()
+        z = [self.bvar(f"_max_bin{cid}_{i}") for i in range(len(variables))]
+        self.con(sum(z) == 1)
+        for i, v in enumerate(variables):
+            self.con(result_var <= v + (1 - z[i]) * big_m)
+
+    def con_min_of(self, result_var, variables: List, name: Optional[str] = None):
+        """
+        result_var = min(variables).
+        Uses Gurobi/CPLEX native min when available, otherwise auxiliary formulation.
+
+        Parameters:
+            result_var: The result variable.
+            variables: List of variables.
+            name: Optional constraint name.
+        """
+        if self._is_gurobi():
+            grb_vars = [self._get_grb(v) for v in variables]
+            res = self._get_grb(result_var)
+            kwargs = {}
+            if name:
+                kwargs['name'] = name
+            return self.model.addGenConstrMin(res, grb_vars, **kwargs)
+        for v in variables:
+            self.con(result_var <= v)
+        big_m = 1e9
+        cid = self._next_ind()
+        z = [self.bvar(f"_min_bin{cid}_{i}") for i in range(len(variables))]
+        self.con(sum(z) == 1)
+        for i, v in enumerate(variables):
+            self.con(result_var >= v - (1 - z[i]) * big_m)
+
+    def con_abs_of(self, result_var, arg_var, name: Optional[str] = None):
+        """
+        result_var = |arg_var|.
+        Uses Gurobi/CPLEX native abs when available, otherwise auxiliary formulation.
+
+        Parameters:
+            result_var: The result variable.
+            arg_var: The argument variable.
+            name: Optional constraint name.
+        """
+        if self._is_gurobi():
+            res = self._get_grb(result_var)
+            arg = self._get_grb(arg_var)
+            kwargs = {}
+            if name:
+                kwargs['name'] = name
+            return self.model.addGenConstrAbs(res, arg, **kwargs)
+        self.con(result_var >= arg_var)
+        self.con(result_var >= -arg_var)
+        big_m = 1e9
+        z = self.bvar(f"_abs_bin{self._next_ind()}")
+        self.con(result_var <= arg_var + 2 * (1 - z) * big_m)
+        self.con(result_var <= -arg_var + 2 * z * big_m)
+
+    def con_and(self, result_var, variables: List, name: Optional[str] = None):
+        """
+        result_var = AND(variables). All variables must be 1 for result to be 1.
+        Uses Gurobi/CPLEX native and when available, otherwise auxiliary formulation.
+
+        Parameters:
+            result_var: The binary result variable.
+            variables: List of binary variables.
+            name: Optional constraint name.
+        """
+        if self._is_gurobi():
+            res = self._get_grb(result_var)
+            grb_vars = [self._get_grb(v) for v in variables]
+            kwargs = {}
+            if name:
+                kwargs['name'] = name
+            return self.model.addGenConstrAnd(res, grb_vars, **kwargs)
+        self.con(result_var <= sum(variables))
+        self.con(result_var >= sum(variables) - len(variables) + 1)
+
+    def con_or(self, result_var, variables: List, name: Optional[str] = None):
+        """
+        result_var = OR(variables). At least one variable must be 1 for result to be 1.
+        Uses Gurobi/CPLEX native or when available, otherwise auxiliary formulation.
+
+        Parameters:
+            result_var: The binary result variable.
+            variables: List of binary variables.
+            name: Optional constraint name.
+        """
+        if self._is_gurobi():
+            res = self._get_grb(result_var)
+            grb_vars = [self._get_grb(v) for v in variables]
+            kwargs = {}
+            if name:
+                kwargs['name'] = name
+            return self.model.addGenConstrOr(res, grb_vars, **kwargs)
+        self.con(result_var >= sum(variables) * (1 / len(variables)))
+        for v in variables:
+            self.con(result_var >= v)
+
+    def con_norm_of(self, result_var, variables: List, norm_type: int = 2,
+                    name: Optional[str] = None):
+        """
+        result_var = ||variables||_norm_type.
+        Uses Gurobi native genconstrNorm when available, otherwise SOC/piecewise formulation.
+
+        Parameters:
+            result_var: The result variable.
+            variables: List of variables.
+            norm_type: 0 (L0), 1 (L1), 2 (L2), or inf (Linf).
+            name: Optional constraint name.
+        """
+        if self._is_gurobi():
+            grb_vars = [self._get_grb(v) for v in variables]
+            res = self._get_grb(result_var)
+            kwargs = {}
+            if name:
+                kwargs['name'] = name
+            return self.model.addGenConstrNorm(res, grb_vars, norm_type, **kwargs)
+        if norm_type == 0:
+            cid = self._next_ind()
+            z = [self.bvar(f"_norm0_bin{cid}_{i}") for i in range(len(variables))]
+            for i, v in enumerate(variables):
+                self.con(z[i] >= (v != 0))
+            self.con(result_var == sum(z))
+        elif norm_type == 1:
+            cid = self._next_ind()
+            t = [self.pvar(f"_norm1_abs{cid}_{i}") for i in range(len(variables))]
+            for i, v in enumerate(variables):
+                self.con(t[i] >= v)
+                self.con(t[i] >= -v)
+            self.con(result_var == sum(t))
+        elif norm_type == 2:
+            self.con(result_var >= 0)
+            self.con(result_var * result_var >= sum(v * v for v in variables))
+        elif norm_type == float('inf') or norm_type == 'inf':
+            cid = self._next_ind()
+            t = [self.pvar(f"_linf_abs{cid}_{i}") for i in range(len(variables))]
+            for i, v in enumerate(variables):
+                self.con(t[i] >= v)
+                self.con(t[i] >= -v)
+            for i in range(len(variables)):
+                self.con(result_var >= t[i])

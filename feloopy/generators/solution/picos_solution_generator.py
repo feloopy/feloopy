@@ -5,6 +5,8 @@
 import picos as picos_interface
 import timeit
 
+from ...helpers.solver_executables import missing_solver_message
+
 picos_solver_selector = {'cplex': 'cplex',
                          'cvxopt': 'cvxopt',
                          'ecos': 'ecos',
@@ -15,6 +17,11 @@ picos_solver_selector = {'cplex': 'cplex',
                          'osqp': 'osqp',
                          'scip': 'scip',
                          'smcp': 'smcp'}
+
+
+_picos_setup_name = {'scip': 'pyscipopt',
+                     'glpk': 'cvxopt',
+                     'mskfsn': 'mosek'}
 
 
 def generate_solution(features):
@@ -48,9 +55,18 @@ def generate_solution(features):
         raise RuntimeError(
             "Using solver '%s' is not supported by 'picos'! \nPossible fixes: \n1) Check the solver name. \n2) Use another interface. \n" % (solver_name))
 
+
+    try:
+        available = {str(s) for s in picos_interface.AvailableSolvers()}
+    except Exception:
+        available = None  # older/newer picos API: fall back to its own error
+    if available is not None and solver_name not in available:
+        raise RuntimeError(
+            missing_solver_message(_picos_setup_name.get(solver_name, solver_name)))
+
     match debug:
 
-        case False:
+        case False | True:
 
             match directions[objective_id]:
                 case "min":

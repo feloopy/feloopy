@@ -6,6 +6,6 @@ from rsome import dro
 
 def generate_model(features):
 
-    return dro.Model(name=features['model_name'],scens=features['scens'])
+    return dro.Model(name=features['model_name'],scens=features['no_scenarios'])
 
 

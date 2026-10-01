@@ -1,8 +1,56 @@
 # Copyright (c) 2022-2026, Keivan Tafakkori. All rights reserved.
 # See the file LICENSE file for licensing details.
 
+import numpy as np
+
 
 def generate_solution(features):
+
+    if features.get('auto_linearize'):
+        from ..classes.linearization import unwrap_proxies
+        features['objectives'] = unwrap_proxies(features['objectives'])
+        features['constraints'] = unwrap_proxies(features['constraints'])
+
+    _original_constraints = features.get('constraints')
+    _original_labels = features.get('constraint_labels')
+    features['constraints'], features['constraint_labels'] = _sanitize_constraints(features)
+    try:
+        return _dispatch_solution(features)
+    finally:
+        features['constraints'] = _original_constraints
+        features['constraint_labels'] = _original_labels
+
+
+def _sanitize_constraints(features):
+    """Return solver-safe ``(constraints, labels)`` lists.
+    """
+    cons = features.get('constraints')
+    if not cons:
+        return cons, features.get('constraint_labels')
+    labs = features.get('constraint_labels')
+    kept_constraints = []
+    kept_labels = [] if labs is not None else None
+    for i, constraint in enumerate(cons):
+        if constraint is None or isinstance(constraint, (bool, np.bool_)):
+            if constraint is not None and not bool(constraint):
+                from ..helpers.error import ConstantConstraintError
+                where = ""
+                if labs is not None and i < len(labs) and labs[i] is not None:
+                    where = " (%s)" % labs[i]
+                raise ConstantConstraintError(
+                    "A constraint%s contains no variables and evaluates to "
+                    "False, so the model can never be satisfied. Check the "
+                    "data feeding it." % where)
+            continue  # vacuous True / placeholder row adds no model row
+        if isinstance(constraint, (int, float, np.integer, np.floating)):
+            continue  # bare number: not a constraint object
+        kept_constraints.append(constraint)
+        if kept_labels is not None and i < len(labs):
+            kept_labels.append(labs[i])
+    return kept_constraints, kept_labels
+
+
+def _dispatch_solution(features):
 
     match features['interface_name']:
 
@@ -151,5 +199,35 @@ def generate_solution(features):
 
             from .solution import rsome_dro_solution_generator
             ModelSolution = rsome_dro_solution_generator.generate_solution(features)
+
+        case 'uno':
+
+            from .solution import uno_solution_generator
+            ModelSolution = uno_solution_generator.generate_solution(features)
+
+        case 'bonmin' | 'couenne':
+
+            from .solution import coin_solution_generator
+            ModelSolution = coin_solution_generator.generate_solution(features)
+
+        case 'scip':
+
+            from .solution import scip_solution_generator
+            ModelSolution = scip_solution_generator.generate_solution(features)
+
+        case 'hexaly':
+
+            from .solution import hexaly_solution_generator
+            ModelSolution = hexaly_solution_generator.generate_solution(features)
+
+        case 'mosek':
+
+            from .solution import mosek_solution_generator
+            ModelSolution = mosek_solution_generator.generate_solution(features)
+
+        case 'picat':
+
+            from .solution import picat_solution_generator
+            ModelSolution = picat_solution_generator.generate_solution(features)
 
     return ModelSolution

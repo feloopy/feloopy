@@ -15,11 +15,8 @@ INFINITY = COPT.INFINITY
 
 def generate_variable(model_object, variable_type, variable_name, variable_bound, variable_dim=0):
 
-    if variable_bound[0] is None:
-        variable_bound[0] = -INFINITY
-
-    if variable_bound[1] is None:
-        variable_bound[1] = +INFINITY
+    lb = variable_bound[0] if variable_bound[0] is not None else -INFINITY
+    ub = variable_bound[1] if variable_bound[1] is not None else +INFINITY
 
     def add_vars(vtype, bounds, keys):
         return model_object.addVars(
@@ -39,7 +36,7 @@ def generate_variable(model_object, variable_type, variable_name, variable_bound
         }
 
         generated_variable = model_object.addVar(
-            vtype=vtypes[variable_type], lb=variable_bound[0], ub=variable_bound[1], name=variable_name)
+            vtype=vtypes[variable_type], lb=lb, ub=ub, name=variable_name)
     else:
         if isinstance(variable_dim, set):
             keys = list(variable_dim)
@@ -62,8 +59,8 @@ def generate_variable(model_object, variable_type, variable_name, variable_bound
         if variable_type in ['ptvar', 'ftvar', 'btvar', 'itvar']:
             shape = tuple(len(dim) for dim in variable_dim)
             generated_variable = model_object.addMVar(
-                shape, vtype=vtypes[variable_type], lb=variable_bound[0], ub=variable_bound[1], nameprefix=variable_name)
+                shape, vtype=vtypes[variable_type], lb=lb, ub=ub, nameprefix=variable_name)
         else:
-            generated_variable = add_vars(vtypes[variable_type], variable_bound, keys)
+            generated_variable = add_vars(vtypes[variable_type], [lb, ub], keys)
 
     return generated_variable

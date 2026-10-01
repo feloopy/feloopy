@@ -5,71 +5,27 @@ import itertools as it
 
 sets = it.product
 
+
+def _make_scalar(model_object, vtype, lb, ub, name):
+    if vtype == 'fvar' or vtype == 'ftvar' or vtype == 'pvar' or vtype == 'ptvar' or vtype == 'rvar':
+        return model_object.NumVar(lb, ub, name)
+    return model_object.IntVar(lb, ub, name)
+
+
 def generate_variable(model_object, variable_type, variable_name, variable_bound, variable_dim=0):
 
-    if variable_bound[0] == None:
-        variable_bound[0] = -model_object.infinity()
+    lb = variable_bound[0] if variable_bound[0] is not None else -model_object.infinity()
+    ub = variable_bound[1] if variable_bound[1] is not None else model_object.infinity()
 
-    if variable_bound[1] == None:
-        variable_bound[1] = model_object.infinity()
+    _continuous = {'pvar', 'ptvar', 'fvar', 'ftvar', 'rvar'}
 
-    match variable_type:
+    if variable_dim == 0:
+        return _make_scalar(model_object, variable_type, lb, ub, variable_name)
 
-        case 'pvar':
+    if isinstance(variable_dim, set):
+        return {key: _make_scalar(model_object, variable_type, lb, ub, f"{variable_name}{key}") for key in variable_dim}
 
-            if variable_dim == 0:
-                generated_variable = model_object.NumVar(variable_bound[0], variable_bound[1], variable_name)
-            else:
-                if isinstance(variable_dim,set):
-                    generated_variable = {key: model_object.NumVar(variable_bound[0], variable_bound[1], f"{variable_name}{key}") for key in variable_dim}
-                elif len(variable_dim) == 1:
-                    generated_variable = {key: model_object.NumVar(variable_bound[0], variable_bound[1], f"{variable_name}{key}") for key in variable_dim[0]}
-                else:
-                    generated_variable = {key: model_object.NumVar(variable_bound[0], variable_bound[1], f"{variable_name}{key}") for key in it.product(*variable_dim)}
+    if len(variable_dim) == 1:
+        return {key: _make_scalar(model_object, variable_type, lb, ub, f"{variable_name}{key}") for key in variable_dim[0]}
 
-        case 'bvar':
-
-            if variable_dim == 0:
-                generated_variable = model_object.IntVar(variable_bound[0], variable_bound[1], variable_name)
-            else:
-                if isinstance(variable_dim,set):
-                    generated_variable = {key: model_object.IntVar(variable_bound[0], variable_bound[1], f"{variable_name}{key}") for key in variable_dim}
-                elif len(variable_dim) == 1:
-                    generated_variable = {key: model_object.IntVar(variable_bound[0], variable_bound[1], f"{variable_name}{key}") for key in variable_dim[0]}
-                else:
-                    generated_variable = {key: model_object.IntVar(variable_bound[0], variable_bound[1], f"{variable_name}{key}") for key in it.product(*variable_dim)}
-
-        case 'ivar':
-
-            if variable_bound[0] == 0:
-                variable_bound[0] = 0
-            if variable_bound[1] == None:
-                variable_bound[1] = model_object.infinity()
-
-            if variable_dim == 0:
-                generated_variable = model_object.IntVar(variable_bound[0], variable_bound[1], variable_name)
-            else:
-                if isinstance(variable_dim,set):
-                    generated_variable = {key: model_object.IntVar(variable_bound[0], variable_bound[1], f"{variable_name}{key}") for key in variable_dim}
-                elif len(variable_dim) == 1:
-                    generated_variable = {key: model_object.IntVar(variable_bound[0], variable_bound[1], f"{variable_name}{key}") for key in variable_dim[0]}
-                else:
-                    generated_variable = {key: model_object.IntVar(variable_bound[0], variable_bound[1], f"{variable_name}{key}") for key in it.product(*variable_dim)}
-
-        case 'fvar':
-
-            if variable_bound[0] == None:
-                variable_bound[0] = -model_object.infinity()
-            if variable_bound[1] == None:
-                variable_bound[1] = model_object.infinity()
-            if variable_dim == 0:
-                generated_variable = model_object.NumVar(variable_bound[0], variable_bound[1], variable_name)
-            else:
-                if isinstance(variable_dim,set):
-                    generated_variable = {key: model_object.NumVar(variable_bound[0], variable_bound[1], f"{variable_name}{key}") for key in variable_dim}
-                elif len(variable_dim) == 1:
-                    generated_variable = {key: model_object.NumVar(variable_bound[0], variable_bound[1], f"{variable_name}{key}") for key in variable_dim[0]}
-                else:
-                    generated_variable = {key: model_object.NumVar(variable_bound[0], variable_bound[1], f"{variable_name}{key}") for key in it.product(*variable_dim)}
-
-    return generated_variable
+    return {key: _make_scalar(model_object, variable_type, lb, ub, f"{variable_name}{key}") for key in sets(*variable_dim)}

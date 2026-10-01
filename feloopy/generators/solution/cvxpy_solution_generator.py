@@ -15,11 +15,11 @@ cvxpy_solver_selector = {
     'scipy': cvxpy_interface.SCIPY,
     'glpk': cvxpy_interface.GLPK,
     'glpk_mi': cvxpy_interface.GLPK_MI,
+    'glpk-mi': cvxpy_interface.GLPK_MI,
     'gurobi': cvxpy_interface.GUROBI,
     'mosek': cvxpy_interface.MOSEK,
     'cbc': cvxpy_interface.CBC,
     'proxqp': cvxpy_interface.PROXQP,
-    'mosek': cvxpy_interface.MOSEK,
     'clarabel': cvxpy_interface.CLARABEL,
     'cplex': cvxpy_interface.CPLEX,
     'nag': cvxpy_interface.NAG,
@@ -27,7 +27,8 @@ cvxpy_solver_selector = {
     'glop': cvxpy_interface.GLOP,
     'scip': cvxpy_interface.SCIP,
     'xpress': cvxpy_interface.XPRESS,
-    'highs': cvxpy_interface.HIGHS}
+    'highs': cvxpy_interface.HIGHS,
+    'ecos': cvxpy_interface.ECOS}
 
 def generate_solution(features):
 
@@ -50,6 +51,9 @@ def generate_solution(features):
     max_iterations = features['max_iterations']
     solver_options = features['solver_options']
 
+    if solver_name not in cvxpy_solver_selector.keys():
+        raise RuntimeError("Using solver '%s' is not supported by 'cvxpy'! \nPossible fixes: \n1) Check the solver name. \n2) Use another interface. \n" % (solver_name))
+
     if 'scipy_options' in solver_options.keys():
         indicator = True
     else:
@@ -67,18 +71,18 @@ def generate_solution(features):
                 constraint_dict[constraint_labels[i]] = model_constraints[i]
 
     for key in solver_options:
+        if key.startswith("---"):
+            continue
+        if solver_options[key] is None:
+            continue
 
         if key != 'scipy_options':
 
             options[key] = solver_options[key]
 
-    if solver_name not in cvxpy_solver_selector.keys():
-        
-        raise RuntimeError("Using solver '%s' is not supported by 'cvxpy'! \nPossible fixes: \n1) Check the solver name. \n2) Use another interface. \n" % (solver_name))
-
     match debug:
 
-        case False:
+        case False | True:
 
             match directions[objective_id]:
 

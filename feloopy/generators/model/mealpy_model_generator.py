@@ -1,9 +1,7 @@
 # Copyright (c) 2022-2026, Keivan Tafakkori. All rights reserved.
 # See the file LICENSE file for licensing details.
 
-def generate_model(solver_name, solver_options):
-
-    module_mappings = {
+module_mappings = {
 
         'orig-bbo': ('mealpy.bio_based', 'BBO', 'OriginalBBO'),
         'dev-bbo': ('mealpy.bio_based', 'BBO', 'DevBBO'),
@@ -216,7 +214,10 @@ def generate_model(solver_name, solver_options):
         'dev-gco': ('mealpy.system_based', 'GCO', 'DevGCO'),
         'orig-gco': ('mealpy.system_based', 'GCO', 'OriginalGCO'),
         'orig-wca': ('mealpy.system_based', 'WCA', 'OriginalWCA'),
-    }
+}
+
+
+def generate_model(solver_name, solver_options):
 
     module_name, class_name, model_name = module_mappings.get(solver_name, (None, None, None))
 
@@ -228,6 +229,6 @@ def generate_model(solver_name, solver_options):
 
     else:
     
-        raise ValueError("Invalid solver name. Please refer to https://feloopy.readthedocs.io/en/latest/heuristic.html")
+        raise ValueError("Invalid solver name. Run 'print(flp.HEURISTIC_ALGORITHMS)' to see the available options.")
 
     return model_object

@@ -5,7 +5,7 @@ import numpy as np
 import timeit
 
 
-def generate_solution(solver_name, AlgOptions, Fitness, ToTalVariableCounter, ObjectivesDirections, ObjectiveBeingOptimized, number_of_times, show_plots, save_plots,show_log):
+def generate_solution(solver_name, AlgOptions, Fitness, ToTalVariableCounter, ObjectivesDirections, ObjectiveBeingOptimized, number_of_times, show_plots, save_plots,show_log, init_solutions=None):
 
     ObjectivesDirections = [-1 if direction =='max' else 1 for direction in ObjectivesDirections]
 
@@ -129,8 +129,44 @@ def generate_solution(solver_name, AlgOptions, Fitness, ToTalVariableCounter, Ob
             from pyMultiobjective.algorithm import unified_non_dominated_sorting_genetic_algorithm_III
             solver = unified_non_dominated_sorting_genetic_algorithm_III
 
+    seeded_module = None
+    original_initial_population = None
+
+    if init_solutions is not None:
+        import numpy as _np
+        init_arr = _np.atleast_2d(_np.array(init_solutions, dtype=float))
+        try:
+            import importlib as _importlib
+            seeded_module = _importlib.import_module(solver.__module__)
+            original_initial_population = seeded_module.initial_population
+
+            def _seeded_initial_population(*args, **kwargs):
+                population = original_initial_population(*args, **kwargs)
+                try:
+                    fns = kwargs.get("list_of_functions")
+                    if fns is None:
+                        fns = args[3] if len(args) > 3 else []
+                    n_dec = population.shape[1] - len(fns)
+                    for i in range(min(population.shape[0], init_arr.shape[0])):
+                        population[i, :n_dec] = init_arr[i, :n_dec]
+                        for off in range(len(fns)):
+                            population[i, -(off + 1)] = fns[-(off + 1)](list(population[i, :n_dec]))
+                except Exception:
+                    pass  # never break the solve: fall back to the random rows
+                return population
+
+            seeded_module.initial_population = _seeded_initial_population
+        except Exception:
+            seeded_module = None
+            original_initial_population = None
+
     time_solve_begin = timeit.default_timer()
-    sol = solver(list_of_functions=list_of_functions, **parameters)
+
+    try:
+        sol = solver(list_of_functions=list_of_functions, **parameters)
+    finally:
+        if seeded_module is not None and original_initial_population is not None:
+            seeded_module.initial_population = original_initial_population
     time_solve_end = timeit.default_timer()
 
     return sol[:, :ToTalVariableCounter[1]], list_of_directions*sol[:, ToTalVariableCounter[1]:], time_solve_begin, time_solve_end

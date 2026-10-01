@@ -5,18 +5,13 @@ authors:
 - family-names: Tafakkori
   given-names: Keivan
   name: Keivan Tafakkori
-version: 0.3.9
-date-released: '2025-07-02'
+version: 0.4.0
+date-released: '2026-10-01'
 repository-code: https://github.com/feloopy/feloopy/
-preferred-citation:
-  type: software
-  authors:
-  - family-names: Tafakkori
-    given-names: Keivan
-  title: 'FelooPy: Efficient and feature-rich integrated decision environment'
-  version: 0.3.8
-  month: 5
-  year: 2025
-  publisher: GitHub
-  url: https://github.com/feloopy/feloopy/
 license: MIT
+preferred-citation:
+  type: article
+  title: 'FelooPy: The Plug-and-Play OR Workflow You''ve Been Looking For'
+  journal: 'OR/MS Tomorrow'
+  publisher: INFORMS
+  url: 'https://www.informs.org/Publications/OR-MS-Tomorrow/FelooPy-The-Plug-and-Play-OR-Workflow-You-ve-Been-Looking-For'

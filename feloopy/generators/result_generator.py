@@ -10,14 +10,16 @@ def get(input, model_object, model_solution, Thing, variable_name_with_index):
                  input['directions'],
                  input['objective_being_optimized']]
 
-    if indicator[0] == 'variable' or indicator[0] == 'dual' or indicator[0] == 'slack' or indicator[0] == 'rc' or indicator[0] == 'iis':
+    if indicator[0] in ('variable', 'dual', 'slack', 'rc', 'iis',
+                         'sensitivity_obj', 'sensitivity_bound', 'basis', 'constrbasis',
+                         'pool', 'pool_obj', 'objn'):
 
         match InterfaceName:
 
             case 'pulp':
 
                 from .result import pulp_result_generator
-                return pulp_result_generator.Get(model_object, model_solution, indicator, variable_name_with_index)
+                return pulp_result_generator.Get(model_object, model_solution, indicator, variable_name_with_index, input=input)
 
             case 'casadi':
 
@@ -42,7 +44,7 @@ def get(input, model_object, model_solution, Thing, variable_name_with_index):
             case 'highs':
 
                 from .result import highs_result_generator
-                return highs_result_generator.Get(model_object, model_solution, indicator, variable_name_with_index)
+                return highs_result_generator.Get(model_object, model_solution, indicator, variable_name_with_index, input=input)
 
             case 'jump':
 
@@ -57,7 +59,8 @@ def get(input, model_object, model_solution, Thing, variable_name_with_index):
             case 'ortools':
 
                 from .result import ortools_result_generator
-                return ortools_result_generator.Get(model_object, model_solution, indicator, variable_name_with_index)
+                real_model = input.get('model_object_before_solve', model_object)
+                return ortools_result_generator.Get(real_model, model_solution, indicator, variable_name_with_index)
 
             case 'ortools_cp':
 
@@ -144,137 +147,190 @@ def get(input, model_object, model_solution, Thing, variable_name_with_index):
                 from .result import rsome_dro_result_generator
                 return rsome_dro_result_generator.Get(model_object, model_solution, indicator, variable_name_with_index)
 
-    elif indicator[0] == 'objective' or indicator[0] == 'status' or indicator[0] == 'time':
+            case 'uno':
 
-        match InterfaceName:
+                from .result import uno_result_generator
+                return uno_result_generator.Get(model_object, model_solution, indicator, variable_name_with_index)
 
-            case 'pulp':
+            case 'bonmin' | 'couenne':
 
-                from .result import pulp_result_generator
-                return pulp_result_generator.Get(model_object, model_solution, indicator)
+                from .result import coin_result_generator
+                return coin_result_generator.Get(model_object, model_solution, indicator, variable_name_with_index)
 
-            case 'casadi':
+            case 'scip':
 
-                from .result import casadi_result_generator
-                return casadi_result_generator.Get(model_object, model_solution, indicator)
+                from .result import scip_result_generator
+                return scip_result_generator.Get(model_object, model_solution, indicator, variable_name_with_index, input=input)
 
-            case 'pyomo':
+            case 'hexaly':
 
-                from .result import pyomo_result_generator
-                return pyomo_result_generator.Get(model_object, model_solution, indicator)
+                from .result import hexaly_result_generator
+                return hexaly_result_generator.Get(model_object, model_solution, indicator, variable_name_with_index, input=input)
 
-            case 'gams':
+            case 'mosek':
 
-                from .result import gamspy_result_generator
-                return gamspy_result_generator.Get(model_object, model_solution, indicator)
+                from .result import mosek_result_generator
+                return mosek_result_generator.Get(model_object, model_solution, indicator, variable_name_with_index, input=input)
 
-            case 'highs':
+            case 'picat':
 
-                from .result import highs_result_generator
-                return highs_result_generator.Get(model_object, model_solution, indicator)
+                from .result import picat_result_generator
+                return picat_result_generator.Get(model_object, model_solution, indicator, variable_name_with_index)
 
-            case 'jump':
+    match InterfaceName:
 
-                from .result import jump_result_generator
-                return jump_result_generator.Get(model_object, model_solution, indicator)
-                     
-            case 'insideopt':
+        case 'pulp':
 
-                from .result import seeker_result_generator
-                return seeker_result_generator.Get(model_object, model_solution, indicator)
+            from .result import pulp_result_generator
+            return pulp_result_generator.Get(model_object, model_solution, indicator, input=input)
 
-            case 'insideopt-demo':
+        case 'casadi':
 
-                from .result import seeker_result_generator
-                return seeker_result_generator.Get(model_object, model_solution, indicator)
+            from .result import casadi_result_generator
+            return casadi_result_generator.Get(model_object, model_solution, indicator)
 
-            case 'ortools':
+        case 'pyomo':
 
-                from .result import ortools_result_generator
-                return ortools_result_generator.Get(model_object, model_solution, indicator)
+            from .result import pyomo_result_generator
+            return pyomo_result_generator.Get(model_object, model_solution, indicator)
 
-            case 'ortools_cp':
+        case 'gams':
 
-                from .result import ortools_cp_result_generator
-                return ortools_cp_result_generator.Get(model_object, model_solution, indicator)
+            from .result import gamspy_result_generator
+            return gamspy_result_generator.Get(model_object, model_solution, indicator)
 
-            case 'gekko':
+        case 'highs':
 
-                from .result import gekko_result_generator
-                return gekko_result_generator.Get(model_object, model_solution, indicator)
+            from .result import highs_result_generator
+            return highs_result_generator.Get(model_object, model_solution, indicator, input=input)
 
-            case 'picos':
+        case 'jump':
 
-                from .result import picos_result_generator
-                return picos_result_generator.Get(model_object, model_solution, indicator)
+            from .result import jump_result_generator
+            return jump_result_generator.Get(model_object, model_solution, indicator)
 
-            case 'mathopt':
+        case 'insideopt':
 
-                from .result import mathopt_result_generator
-                return mathopt_result_generator.Get(model_object, model_solution, indicator)
+            from .result import seeker_result_generator
+            return seeker_result_generator.Get(model_object, model_solution, indicator)
 
-            case name if 'pyoptinterface' in name:
+        case 'insideopt-demo':
 
-                from .result import pyoptinterface_result_generator
-                return pyoptinterface_result_generator.Get(model_object, model_solution, indicator)
+            from .result import seeker_result_generator
+            return seeker_result_generator.Get(model_object, model_solution, indicator)
 
-            case 'cvxpy':
+        case 'ortools':
 
-                from .result import cvxpy_result_generator
-                return cvxpy_result_generator.Get(model_object, model_solution, indicator)
+            from .result import ortools_result_generator
+            real_model = input.get('model_object_before_solve', model_object)
+            return ortools_result_generator.Get(real_model, model_solution, indicator)
 
-            case 'cylp':
+        case 'ortools_cp':
 
-                from .result import cylp_result_generator
-                return cylp_result_generator.Get(model_object, model_solution, indicator)
+            from .result import ortools_cp_result_generator
+            return ortools_cp_result_generator.Get(model_object, model_solution, indicator)
 
-            case 'pymprog':
+        case 'gekko':
 
-                from .result import pymprog_result_generator
-                return pymprog_result_generator.Get(model_object, model_solution, indicator)
+            from .result import gekko_result_generator
+            return gekko_result_generator.Get(model_object, model_solution, indicator)
 
-            case 'cplex':
+        case 'picos':
 
-                from .result import cplex_result_generator
-                return cplex_result_generator.Get(model_object, model_solution, indicator)
+            from .result import picos_result_generator
+            return picos_result_generator.Get(model_object, model_solution, indicator)
 
-            case 'cplex_cp':
+        case 'mathopt':
 
-                from .result import cplex_cp_result_generator
-                return cplex_cp_result_generator.Get(model_object, model_solution, indicator)
+            from .result import mathopt_result_generator
+            return mathopt_result_generator.Get(model_object, model_solution, indicator)
 
-            case 'gurobi':
+        case name if 'pyoptinterface' in name:
 
-                from .result import gurobi_result_generator
-                return gurobi_result_generator.Get(model_object, model_solution, indicator)
+            from .result import pyoptinterface_result_generator
+            return pyoptinterface_result_generator.Get(model_object, model_solution, indicator)
 
-            case 'copt':
+        case 'cvxpy':
 
-                from .result import copt_result_generator
-                return copt_result_generator.Get(model_object, model_solution, indicator)
-            
-            case 'xpress':
+            from .result import cvxpy_result_generator
+            return cvxpy_result_generator.Get(model_object, model_solution, indicator)
 
-                from .result import xpress_result_generator
-                return xpress_result_generator.Get(model_object, model_solution, indicator)
+        case 'cylp':
 
-            case 'mip':
+            from .result import cylp_result_generator
+            return cylp_result_generator.Get(model_object, model_solution, indicator)
 
-                from .result import mip_result_generator
-                return mip_result_generator.Get(model_object, model_solution, indicator)
+        case 'pymprog':
 
-            case 'linopy':
+            from .result import pymprog_result_generator
+            return pymprog_result_generator.Get(model_object, model_solution, indicator)
 
-                from .result import linopy_result_generator
-                return linopy_result_generator.Get(model_object, model_solution, indicator)
-            
-            case 'rsome_ro':
-                    
-                from .result import rsome_ro_result_generator
-                return rsome_ro_result_generator.Get(model_object, model_solution, indicator)
+        case 'cplex':
 
-            case 'rsome_dro':
+            from .result import cplex_result_generator
+            return cplex_result_generator.Get(model_object, model_solution, indicator)
 
-                from .result import rsome_dro_result_generator
-                return rsome_dro_result_generator.Get(model_object, model_solution, indicator)
+        case 'cplex_cp':
 
+            from .result import cplex_cp_result_generator
+            return cplex_cp_result_generator.Get(model_object, model_solution, indicator)
+
+        case 'gurobi':
+
+            from .result import gurobi_result_generator
+            return gurobi_result_generator.Get(model_object, model_solution, indicator)
+
+        case 'copt':
+
+            from .result import copt_result_generator
+            return copt_result_generator.Get(model_object, model_solution, indicator)
+
+        case 'xpress':
+
+            from .result import xpress_result_generator
+            return xpress_result_generator.Get(model_object, model_solution, indicator)
+
+        case 'mip':
+
+            from .result import mip_result_generator
+            return mip_result_generator.Get(model_object, model_solution, indicator)
+
+        case 'linopy':
+
+            from .result import linopy_result_generator
+            return linopy_result_generator.Get(model_object, model_solution, indicator)
+
+        case 'rsome_ro':
+
+            from .result import rsome_ro_result_generator
+            return rsome_ro_result_generator.Get(model_object, model_solution, indicator)
+
+        case 'rsome_dro':
+
+            from .result import rsome_dro_result_generator
+            return rsome_dro_result_generator.Get(model_object, model_solution, indicator)
+
+        case 'uno':
+
+            from .result import uno_result_generator
+            return uno_result_generator.Get(model_object, model_solution, indicator)
+
+        case 'bonmin' | 'couenne':
+
+            from .result import coin_result_generator
+            return coin_result_generator.Get(model_object, model_solution, indicator)
+
+        case 'scip':
+
+            from .result import scip_result_generator
+            return scip_result_generator.Get(model_object, model_solution, indicator, input=input)
+
+        case 'hexaly':
+
+            from .result import hexaly_result_generator
+            return hexaly_result_generator.Get(model_object, model_solution, indicator, input=input)
+
+        case 'picat':
+
+            from .result import picat_result_generator
+            return picat_result_generator.Get(model_object, model_solution, indicator)

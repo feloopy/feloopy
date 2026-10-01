@@ -41,6 +41,10 @@ class SA:
 
         if self.r == 0:
             self.pi = np.random.rand(1, self.single_objective_tot)
+            init = getattr(self, 'init_solutions', None)
+            if init is not None:
+                init = np.atleast_2d(init)
+                self.pi[0, :self.f] = init[0, :self.f]
             self.pi[:, self.new_reward_col] = - np.inf * self.d
             self.pi[:, self.old_reward_col] = - np.inf * self.d
             self.pi[:, self.status_col] = 0

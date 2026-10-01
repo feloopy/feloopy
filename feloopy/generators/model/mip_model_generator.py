@@ -3,5 +3,14 @@
 
 import mip as mip_interface
 
+mip_solver_map = {
+    'cbc': 'CBC',
+    'cplex': 'CPLEX',
+    'glpk': 'GLPK',
+    'gurobi': 'GRB',
+}
+
 def generate_model(features):
-    return mip_interface.Model(features['model_name'], solver_name='CBC')
+    solver_name = features.get('solver_name', 'cbc')
+    mapped = mip_solver_map.get(solver_name, 'CBC')
+    return mip_interface.Model(features['model_name'], solver_name=mapped)

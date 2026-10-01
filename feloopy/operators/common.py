@@ -1,16 +1,10 @@
 # Copyright (c) 2022-2026, Keivan Tafakkori. All rights reserved.
 # See the file LICENSE file for licensing details.
 
-import pip
 import timeit
-import os
-import sys
-import pandas as pd
+from ..helpers._lazy import pl
 import numpy as np
 import itertools as it
-import matplotlib.style as style
-import matplotlib.pyplot as plt
-from openpyxl import load_workbook
 import math as mt
 from ..helpers.formatter import *
 
@@ -38,7 +32,7 @@ def keys(a):
         return range(len(a))
     elif isinstance(a, dict):
         return list(a.keys())
-    elif isinstance(a, pd.Series):
+    elif isinstance(a, pl.Series):
         return a.index.tolist()
     elif isinstance(a, list):
         return range(len(a))
@@ -51,7 +45,7 @@ def kvs(a):
         return enumerate(a)
     elif isinstance(a, dict):
         return a.items()
-    elif isinstance(a, pd.Series):
+    elif isinstance(a, pl.Series):
         return zip(a.index, a.values)
     elif isinstance(a, list):
         return enumerate(a)
@@ -76,7 +70,7 @@ def kvs_advanced(a, sort_order='increasing', sort_by='key', b=None, output='both
             return [item[1] for item in sorted_items]
         else:  # output == 'both'
             return sorted_items
-    elif isinstance(a, pd.Series):
+    elif isinstance(a, pl.Series):
         if sort_by == 'keys':
             sorted_items = a.sort_index(ascending=(sort_order == 'increasing'))
         elif sort_by == 'values':
@@ -208,10 +202,8 @@ def version(INPUT):
     print(INPUT.__version__)
     return (INPUT)
 
-import os
-import sys
-
 def compare(results, show_fig=True, save_fig=False, file_name=None, dpi=800, fig_size=(15, 3), alpha=0.8, line_width=5):
+    import matplotlib.pyplot as plt
 
     # [obj, time, accuracy, prob_per_epoch]
 

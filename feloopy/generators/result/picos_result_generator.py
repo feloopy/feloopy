@@ -21,20 +21,43 @@ def Get(model_object, result, input1, input2=None):
 
         case 'objective':
 
-            return model_object.obj_value()
+            return model_object.value
 
         case 'time':
 
             return (result[1][1]-result[1][0])
 
-        case 'dual':
-            dual_values = {}
+        case 'bound':
 
-            for constraint_name in result[0][1].keys():
-                dual_value = model_object.constraints[result[0][1][constraint_name]].dual_value
-                dual_values[constraint_name] = dual_value
-            
-            for constraint_name, dual_value in dual_values.items():
-                if constraint_name == input2:
-                    return dual_value
+            return None
+
+        case 'dual':
+            constraint_dict = result[0][1]
+            if isinstance(input2, str) and input2 in constraint_dict:
+                con_obj = constraint_dict[input2]
+                try:
+                    return con_obj.dual
+                except Exception:
+                    return None
+            elif hasattr(input2, '_id'):
+                try:
+                    return model_object.constraints[input2._id].dual
+                except Exception:
+                    return None
+            return None
+
+        case 'slack':
+            constraint_dict = result[0][1]
+            if isinstance(input2, str) and input2 in constraint_dict:
+                con_obj = constraint_dict[input2]
+                try:
+                    return con_obj.slack
+                except Exception:
+                    return None
+            elif hasattr(input2, '_id'):
+                try:
+                    return model_object.constraints[input2._id].slack
+                except Exception:
+                    return None
+            return None
 

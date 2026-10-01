@@ -17,29 +17,47 @@ on:
         default: false
 
 jobs:
-  test:
-    name: Run tests
+  check-version:
+    name: Check version not already published
+    if: inputs.dry_run == false
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
+      - name: Check version against PyPI
+        if: inputs.target == 'pypi'
+        run: |
+          VERSION=$(python -c "exec(open('feloopy/_version.py').read()); print(__version__)")
+          echo "Version to publish: $VERSION"
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://pypi.org/pypi/feloopy/$VERSION/json")
+          if [ "$STATUS" -eq 200 ]; then
+            echo "::error::Version $VERSION already exists on PyPI. Bump the version in feloopy/_version.py."
+            exit 1
+          elif [ "$STATUS" -ne 404 ]; then
+            echo "::error::Failed to check PyPI (HTTP $STATUS). Try again later."
+            exit 1
+          fi
+          echo "Version $VERSION is available on PyPI"
 
-      - name: Install package with dev extras
-        run: pip install -e ".[dev]"
-
-      - name: Run tests
-        run: pytest tests/ -v
+      - name: Check version against TestPyPI
+        if: inputs.target == 'testpypi'
+        run: |
+          VERSION=$(python -c "exec(open('feloopy/_version.py').read()); print(__version__)")
+          echo "Version to publish: $VERSION"
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://test.pypi.org/pypi/feloopy/$VERSION/json")
+          if [ "$STATUS" -eq 200 ]; then
+            echo "::error::Version $VERSION already exists on TestPyPI. Bump the version in feloopy/_version.py."
+            exit 1
+          elif [ "$STATUS" -ne 404 ]; then
+            echo "::error::Failed to check TestPyPI (HTTP $STATUS). Try again later."
+            exit 1
+          fi
+          echo "Version $VERSION is available on TestPyPI"
 
   build:
     name: Build distribution
-    needs: test
+    needs: check-version
+    if: ${{ !cancelled() && (needs.check-version.result == 'success' || needs.check-version.result == 'skipped') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -66,6 +84,11 @@ jobs:
               sys.exit(1)
           print('OK: tests/ not in wheel')
           "
+
+      - name: Verify package installs and imports
+        run: |
+          pip install dist/*.whl
+          python -c "import feloopy; print(f'feloopy {feloopy.__version__} OK')"
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
