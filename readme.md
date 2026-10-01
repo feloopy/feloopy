@@ -17,7 +17,7 @@
 
   <h1>FelooPy</h1>
 
-  <strong>Efficient & Feature-Rich Decision Engine</strong>
+  <strong>Efficient & Feature-Rich Integrated Decision Environment</strong>
 </div>
 
 <div align="center" style="margin-bottom: 2px;">
@@ -39,50 +39,11 @@ FelooPy is a plug-and-play operations research workflow for mathematical optimiz
 pip install feloopy
 ```
 
-Add the stock solver stack (Pyomo, HiGHS, SCIP, Uno, OR-Tools, CVXPY,
-pyDecision, Mealpy, PyMoo):
+Or the stock solver stack:
 
 ```bash
 pip install "feloopy[stock]"
 ```
-
-Everything else FelooPy can drive - commercial bindings, extra modelling
-layers, optional data features - is a plain name away, pinned to FelooPy's
-preferred (tested) versions:
-
-```bash
-flp install gurobi cylp rsome      # resolved names, preferred versions
-flp install --latest gurobi        # newest releases instead of the pins
-flp deps                           # what is available, and what is installed
-flp solvers                        # which interfaces are ready to use
-```
-
-### Update notifications
-
-FelooPy checks PyPI for newer releases the same way pip does: in the background,
-without ever delaying `import feloopy`, at most **once per machine every 7 days**
-(jittered, with exponential backoff when offline, and a cross-process lock, so it
-never generates meaningful traffic). When a newer stable release exists you get
-one line on stderr, once per version:
-
-```text
-FelooPy 0.5.0 is available (you have 0.4.0) -> python -m pip install --upgrade feloopy
-```
-
-```bash
-feloopy update-check        # check now (respects nothing but the network)
-feloopy update-check --offline   # report the cached result only
-```
-
-```python
-import feloopy
-info = feloopy.check_update(force=True, verbose=True)   # never raises
-```
-
-Disable the automatic check with `FELOOPY_DISABLE_UPDATE_CHECK=1` (or
-`FELOOPY_UPDATE_CHECK=0`); set `FELOOPY_UPDATE_CHECK_INTERVAL_DAYS` to tune the
-interval (clamped to >= 1 hour). Only `https://pypi.org/pypi/feloopy/json` is
-contacted over TLS, and state is stored as JSON in `~/feloopy/Caches/API/`.
 
 ## Quick Start
 
